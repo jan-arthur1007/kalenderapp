@@ -1,0 +1,8 @@
+node_modules/
+*.local
+
+# env-filer med hemmeligheter
+functions/.env
+functions/.env.local
+.env
+.env.*

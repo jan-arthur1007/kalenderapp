@@ -1,0 +1,43 @@
+{
+  "expo": {
+    "owner": "janarthur",
+    "slug": "G_opg_1",
+    "name": "G_opg_1",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "scheme": "gopg1",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.janarthur.gopg1",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "edgeToEdgeEnabled": true,
+      "package": "com.janarthur.gopg1"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "EXPO_PUBLIC_GOOGLE_CLIENT_ID": "243968150095-b1v8bqmrm1ahds71tunhdmrt2voj4kjo.apps.googleusercontent.com",
+      "EXPO_PUBLIC_EXPO_FULL_NAME": "@janarthur/G_opg_1"
+    },
+    "plugins": [
+      "expo-web-browser"
+    ]
+  }
+}
