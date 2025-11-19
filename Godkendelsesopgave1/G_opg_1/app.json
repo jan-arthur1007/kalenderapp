@@ -34,7 +34,9 @@
     },
     "extra": {
       "EXPO_PUBLIC_GOOGLE_CLIENT_ID": "243968150095-b1v8bqmrm1ahds71tunhdmrt2voj4kjo.apps.googleusercontent.com",
-      "EXPO_PUBLIC_EXPO_FULL_NAME": "@janarthur/G_opg_1"
+      "EXPO_PUBLIC_EXPO_FULL_NAME": "@janarthur/G_opg_1",
+      "EXPO_PUBLIC_FETCH_FREE_BUSY_URL": "https://us-central1-kalender-app-56045.cloudfunctions.net/fetchFreeBusy",
+      "EXPO_PUBLIC_GOOGLE_AUTH_START_URL": "https://us-central1-kalender-app-56045.cloudfunctions.net/authStart"
     },
     "plugins": [
       "expo-web-browser"

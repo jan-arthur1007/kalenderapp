@@ -8,6 +8,7 @@ if (!admin.apps.length) {
 }
 
 const db = admin.database();
+const auth = admin.auth();
 
 // 🔹 LES OAUTH-CONFIG FRA ENV-VARIABLER (kommer fra .env i functions/)
 const OAUTH_CLIENT_ID = process.env.OAUTH_CLIENT_ID;
@@ -35,6 +36,28 @@ const buildGoogleAuthUrl = ({ scope, state }) => {
 
   return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
 };
+
+async function refreshAccessToken(refreshToken) {
+  if (!refreshToken) {
+    throw new Error('Mangler refresh token');
+  }
+  const body = new URLSearchParams({
+    client_id: OAUTH_CLIENT_ID,
+    client_secret: OAUTH_CLIENT_SECRET,
+    refresh_token: refreshToken,
+    grant_type: 'refresh_token',
+  });
+  const resp = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: body.toString(),
+  });
+  const json = await resp.json();
+  if (!resp.ok || json.error) {
+    throw new Error(json.error_description || json.error || 'Kunne ikke refreshe token');
+  }
+  return json;
+}
 
 // 1) START: /authStart – appen treffer dette via nettleser
 exports.authStart = functions.https.onRequest(async (req, res) => {
@@ -152,5 +175,70 @@ exports.authCallback = functions.https.onRequest(async (req, res) => {
   } catch (err) {
     console.error('authCallback error', err);
     res.status(500).send('Noe gikk galt i authCallback.');
+  }
+});
+
+exports.fetchFreeBusy = functions.https.onRequest(async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization || '';
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    if (!token) {
+      return res.status(401).send('Mangler ID-token');
+    }
+
+    const decoded = await auth.verifyIdToken(token);
+    const uid = decoded.uid;
+    const calendarTokensSnap = await db.ref(`calendarTokens/${uid}`).once('value');
+    const calendarTokens = calendarTokensSnap.val();
+    if (!calendarTokens) {
+      return res.status(404).send('Fant ingen Google-kalender for denne brukeren.');
+    }
+
+    let accessToken = calendarTokens.accessToken;
+    const expiresAt = calendarTokens.expiresAt || 0;
+    if (Date.now() > expiresAt && calendarTokens.refreshToken) {
+      const refreshed = await refreshAccessToken(calendarTokens.refreshToken);
+      accessToken = refreshed.access_token;
+      await db.ref(`calendarTokens/${uid}`).update({
+        accessToken,
+        expiresAt: refreshed.expires_in ? Date.now() + refreshed.expires_in * 1000 : null,
+        updatedAt: Date.now(),
+      });
+    }
+
+    const { timeMin, timeMax } = req.query;
+    const now = new Date();
+    const start = timeMin || now.toISOString();
+    const end = timeMax || new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString();
+
+    const freeBusyResponse = await fetch('https://www.googleapis.com/calendar/v3/freeBusy', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        timeMin: start,
+        timeMax: end,
+        items: [{ id: 'primary' }],
+      }),
+    });
+
+    const freeBusyJson = await freeBusyResponse.json();
+    if (!freeBusyResponse.ok) {
+      console.error('freebusy error', freeBusyJson);
+      return res
+        .status(500)
+        .send(freeBusyJson.error?.message || 'Kunne ikke hente free/busy-data.');
+    }
+
+    return res.status(200).json({
+      timeMin: start,
+      timeMax: end,
+      calendars: freeBusyJson.calendars,
+    });
+  } catch (err) {
+    console.error('fetchFreeBusy error', err);
+    return res.status(500).send('Noe gikk galt under free/busy-henting.');
   }
 });
