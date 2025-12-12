@@ -86,6 +86,53 @@ export default function App() {
     }
 
     await update(ref(database), updates);
+    return appointmentId;
+  };
+
+  const updateAppointment = async (appointmentId, changes) => {
+    if (!uid) throw new Error('Ingen bruker logget inn');
+    const snap = await get(ref(database, `appointments/${uid}/${appointmentId}`));
+    if (!snap.exists()) throw new Error('Fant ikke avtalen.');
+    const current = snap.val();
+    const groupId = current.groupId || null;
+    const payload = { ...current, ...changes };
+    const updates = {
+      [`appointments/${uid}/${appointmentId}`]: payload,
+    };
+    if (groupId) {
+      const membersSnap = await get(ref(database, `groups/${groupId}/members`));
+      if (membersSnap.exists()) {
+        const members = membersSnap.val() || {};
+        Object.keys(members).forEach((memberUid) => {
+          updates[`appointments/${memberUid}/${appointmentId}`] = {
+            ...payload,
+            sharedWithGroup: true,
+          };
+        });
+      }
+    }
+    await update(ref(database), updates);
+  };
+
+  const deleteAppointment = async (appointmentId) => {
+    if (!uid) throw new Error('Ingen bruker logget inn');
+    const snap = await get(ref(database, `appointments/${uid}/${appointmentId}`));
+    if (!snap.exists()) return;
+    const current = snap.val();
+    const groupId = current.groupId || null;
+    const updates = {
+      [`appointments/${uid}/${appointmentId}`]: null,
+    };
+    if (groupId) {
+      const membersSnap = await get(ref(database, `groups/${groupId}/members`));
+      if (membersSnap.exists()) {
+        const members = membersSnap.val() || {};
+        Object.keys(members).forEach((memberUid) => {
+          updates[`appointments/${memberUid}/${appointmentId}`] = null;
+        });
+      }
+    }
+    await update(ref(database), updates);
   };
 
   const headerTitle = useMemo(() => 'Kalender', []);
@@ -120,6 +167,8 @@ export default function App() {
                 <MainTabs
                   appointments={appointments}
                   addAppointment={addAppointment}
+                  updateAppointment={updateAppointment}
+                  deleteAppointment={deleteAppointment}
                   groups={groups}
                 />
               )}

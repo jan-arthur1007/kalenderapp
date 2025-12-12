@@ -37,7 +37,8 @@
       "EXPO_PUBLIC_EXPO_FULL_NAME": "@janarthur/G_opg_1",
       "EXPO_PUBLIC_FETCH_FREE_BUSY_URL": "https://us-central1-kalender-app-56045.cloudfunctions.net/fetchFreeBusy",
       "EXPO_PUBLIC_GOOGLE_AUTH_START_URL": "https://us-central1-kalender-app-56045.cloudfunctions.net/authStart",
-      "EXPO_PUBLIC_GROUP_FREE_BUSY_URL": "https://us-central1-kalender-app-56045.cloudfunctions.net/groupFreeBusy"
+      "EXPO_PUBLIC_GROUP_FREE_BUSY_URL": "https://us-central1-kalender-app-56045.cloudfunctions.net/groupFreeBusy",
+      "EXPO_PUBLIC_CREATE_EVENT_URL": "https://us-central1-kalender-app-56045.cloudfunctions.net/createEvent"
     },
     "plugins": [
       "expo-web-browser"

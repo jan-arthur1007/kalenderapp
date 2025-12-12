@@ -8,6 +8,9 @@ import {
   Text,
   Alert,
   ActivityIndicator,
+  Modal,
+  TextInput,
+  StyleSheet,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import styles from '../styles /styles';
@@ -23,16 +26,65 @@ import { get, ref } from 'firebase/database';
 
 const DEFAULT_RANGE_DAYS = 3;
 
+const localStyles = StyleSheet.create({
+  backdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+  },
+  modalCard: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    width: '100%',
+    maxWidth: 420,
+  },
+  modalTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 12,
+    color: '#111827',
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 12,
+  },
+  cancel: {
+    color: '#6b7280',
+    fontWeight: '600',
+  },
+  save: {
+    color: '#2563eb',
+    fontWeight: '700',
+  },
+});
+
 const formatIntervalLabel = (slot) => {
-  const options = { hour: '2-digit', minute: '2-digit' };
-  return `${slot.start.toLocaleDateString()} ${slot.start.toLocaleTimeString([], options)} – ${slot.end.toLocaleTimeString([], options)}`;
+  const dateOpts = { day: '2-digit', month: 'short', year: 'numeric' };
+  const timeOpts = { hour: '2-digit', minute: '2-digit' };
+  return `${slot.start.toLocaleDateString('no-NO', dateOpts)} ${slot.start.toLocaleTimeString([], timeOpts)} – ${slot.end.toLocaleTimeString([], timeOpts)}`;
 };
 
-export default function HomeScreen({ navigation, appointments = [] }) {
+export default function HomeScreen({
+  navigation,
+  appointments = [],
+  updateAppointment,
+  deleteAppointment,
+}) {
   const [busyTimes, setBusyTimes] = useState([]);
   const [busyWindow, setBusyWindow] = useState(null);
   const [busyError, setBusyError] = useState('');
   const [loadingBusy, setLoadingBusy] = useState(false);
+  const [editVisible, setEditVisible] = useState(false);
+  const [editTitle, setEditTitle] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [editId, setEditId] = useState(null);
 
   const loadAvailability = useCallback(async () => {
     if (!hasGoogleClientId()) {
@@ -84,6 +136,44 @@ export default function HomeScreen({ navigation, appointments = [] }) {
     }, [loadAvailability])
   );
 
+  const startEdit = (item) => {
+    setEditId(item.id);
+    setEditTitle(item.title || '');
+    setEditDescription(item.description || '');
+    setEditVisible(true);
+  };
+
+  const handleUpdate = async () => {
+    if (!editId || !updateAppointment) return;
+    try {
+      await updateAppointment(editId, {
+        title: editTitle.trim(),
+        description: editDescription.trim(),
+      });
+      setEditVisible(false);
+    } catch (err) {
+      Alert.alert('Kunne ikke oppdatere', err.message || 'Prøv igjen.');
+    }
+  };
+
+  const handleDelete = (item) => {
+    if (!deleteAppointment) return;
+    Alert.alert('Slett avtale', 'Er du sikker på at du vil slette avtalen?', [
+      { text: 'Avbryt', style: 'cancel' },
+      {
+        text: 'Slett',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await deleteAppointment(item.id);
+          } catch (err) {
+            Alert.alert('Kunne ikke slette', err.message || 'Prøv igjen.');
+          }
+        },
+      },
+    ]);
+  };
+
   const handleManualConnect = useCallback(async () => {
     if (!hasGoogleClientId()) {
       promptMissingClientId();
@@ -129,6 +219,18 @@ export default function HomeScreen({ navigation, appointments = [] }) {
         <Text style={styles.cardSubtitle} numberOfLines={1}>
           Deltakere: {participantsText}
         </Text>
+        <View style={{ flexDirection: 'row', marginTop: 8, gap: 12 }}>
+          {updateAppointment ? (
+            <TouchableOpacity onPress={() => startEdit(item)}>
+              <Text style={{ color: '#2563eb', fontWeight: '600' }}>Rediger</Text>
+            </TouchableOpacity>
+          ) : null}
+          {deleteAppointment ? (
+            <TouchableOpacity onPress={() => handleDelete(item)}>
+              <Text style={{ color: '#dc2626', fontWeight: '600' }}>Slett</Text>
+            </TouchableOpacity>
+          ) : null}
+        </View>
       </TouchableOpacity>
     );
   };
@@ -164,26 +266,22 @@ export default function HomeScreen({ navigation, appointments = [] }) {
   return (
     <View style={styles.screenContainer}>
       <Text style={styles.screenTitle}>Dine avtaler</Text>
-      <TouchableOpacity
-        style={{
-          backgroundColor: '#2563eb',
-          paddingVertical: 12,
-          borderRadius: 8,
-          marginBottom: 16,
-        }}
-        onPress={handleManualConnect}
-      >
-        <Text style={{ color: '#fff', textAlign: 'center', fontWeight: '600' }}>
-          Koble til Google-kalender
-        </Text>
-      </TouchableOpacity>
       <View style={[styles.card, { marginBottom: 16 }]}>
         <View style={styles.cardHeaderRow}>
           <Text style={styles.cardTitle}>Kalender (opptatt)</Text>
           {busyWindow ? (
             <Text style={styles.cardDate}>
-              {new Date(busyWindow.timeMin).toLocaleDateString()} –{' '}
-              {new Date(busyWindow.timeMax).toLocaleDateString()}
+              {new Date(busyWindow.timeMin).toLocaleDateString('no-NO', {
+                day: '2-digit',
+                month: 'short',
+                year: 'numeric',
+              })}{' '}
+              –{' '}
+              {new Date(busyWindow.timeMax).toLocaleDateString('no-NO', {
+                day: '2-digit',
+                month: 'short',
+                year: 'numeric',
+              })}
             </Text>
           ) : null}
         </View>
@@ -209,6 +307,38 @@ export default function HomeScreen({ navigation, appointments = [] }) {
         // Vises når listen er tom
         ListEmptyComponent={<Text style={styles.emptyText}>Ingen avtaler enda</Text>}
       />
+
+      {/* Redigeringsmodal */}
+      {editVisible && (
+        <Modal visible transparent animationType="fade">
+          <View style={localStyles.backdrop}>
+            <View style={localStyles.modalCard}>
+              <Text style={localStyles.modalTitle}>Rediger avtale</Text>
+              <TextInput
+                value={editTitle}
+                onChangeText={setEditTitle}
+                placeholder="Tittel"
+                style={localStyles.input}
+              />
+              <TextInput
+                value={editDescription}
+                onChangeText={setEditDescription}
+                placeholder="Beskrivelse"
+                multiline
+                style={[localStyles.input, { height: 80 }]}
+              />
+              <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 12 }}>
+                <TouchableOpacity onPress={() => setEditVisible(false)}>
+                  <Text style={localStyles.cancel}>Avbryt</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={handleUpdate}>
+                  <Text style={localStyles.save}>Lagre</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      )}
     </View>
   );
 }

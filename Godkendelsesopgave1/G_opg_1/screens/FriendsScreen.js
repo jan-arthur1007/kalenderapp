@@ -10,7 +10,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { onValue, ref, get, update } from 'firebase/database';
+import { onValue, ref, get, update, remove } from 'firebase/database';
 import styles from '../styles /styles';
 import { auth, database } from '../database/firebase';
 
@@ -56,6 +56,34 @@ const useFriendList = (uid) => {
   return { friends, loading };
 };
 
+// Hook for mottatte venneforespørsler
+const useIncomingRequests = (uid) => {
+  const [requests, setRequests] = useState([]);
+
+  useEffect(() => {
+    if (!uid) {
+      setRequests([]);
+      return () => undefined;
+    }
+    const reqRef = ref(database, `friendRequests/${uid}`);
+    const unsubscribe = onValue(
+      reqRef,
+      (snapshot) => {
+        const raw = snapshot.val() || {};
+        const list = Object.keys(raw).map((fromUid) => ({
+          fromUid,
+          ...(raw[fromUid] || {}),
+        }));
+        setRequests(list);
+      },
+      () => setRequests([])
+    );
+    return unsubscribe;
+  }, [uid]);
+
+  return requests;
+};
+
 // Hook som abonnerer på gruppene som brukeren er medlem av
 const useGroups = (uid) => {
   const [groups, setGroups] = useState([]);
@@ -91,6 +119,7 @@ export default function FriendsScreen({ navigation }) {
   const displayName = currentUser?.displayName || email.split('@')[0] || uid;
 
   const { friends, loading } = useFriendList(uid);
+  const incoming = useIncomingRequests(uid);
   const friendIds = useMemo(() => new Set(friends.map((friend) => friend.uid)), [friends]);
   // Egne og delte grupper for brukeren
   const groups = useGroups(uid);
@@ -185,8 +214,8 @@ export default function FriendsScreen({ navigation }) {
     }
   };
 
-  // Oppretter toveis vennskapskant i RTDB
-  const handleAddFriend = async () => {
+  // Sender venneforespørsel
+  const handleSendRequest = async () => {
     if (!uid || !searchResult || searchResult.type !== 'result') {
       return;
     }
@@ -194,35 +223,71 @@ export default function FriendsScreen({ navigation }) {
     const { uid: friendUid, profile } = searchResult;
     const now = Date.now();
     const friendUsername = profile.username || profile.displayName || friendUid;
-    const friendUsernameLower =
-      profile.username_lower || sanitize(profile.username || profile.displayName || friendUid);
-
-    const selfUsernameLower = sanitize(displayName);
 
     const updates = {
-      [`friends/${uid}/${friendUid}`]: {
-        uid: friendUid,
-        username: friendUsername,
-        username_lower: friendUsernameLower,
-        email: profile.email || '',
-        addedAt: now,
+      [`friendRequests/${friendUid}/${uid}`]: {
+        fromUid: uid,
+        fromName: displayName,
+        fromEmail: email,
+        toUid: friendUid,
+        createdAt: now,
+        status: 'pending',
       },
-      [`friends/${friendUid}/${uid}`]: {
-        uid,
-        username: displayName,
-        username_lower: selfUsernameLower,
-        email,
-        addedAt: now,
+      [`sentRequests/${uid}/${friendUid}`]: {
+        toUid: friendUid,
+        toName: friendUsername,
+        createdAt: now,
+        status: 'pending',
       },
     };
 
     try {
       await update(ref(database), updates);
-      setFeedback('Venn lagt til!');
+      setFeedback('Forespørsel sendt!');
       setSearchResult(null);
       setSearchValue('');
     } catch (err) {
-      Alert.alert('Feil', err.message || 'Kunne ikke legge til venn.');
+      Alert.alert('Feil', err.message || 'Kunne ikke sende forespørsel.');
+    }
+  };
+
+  const acceptRequest = async (req) => {
+    if (!uid || !req?.fromUid) return;
+    const friendUid = req.fromUid;
+    const now = Date.now();
+    const updates = {
+      [`friends/${uid}/${friendUid}`]: {
+        uid: friendUid,
+        username: req.fromName || req.fromUid,
+        email: req.fromEmail || '',
+        addedAt: now,
+      },
+      [`friends/${friendUid}/${uid}`]: {
+        uid,
+        username: displayName,
+        email,
+        addedAt: now,
+      },
+      [`friendRequests/${uid}/${friendUid}`]: null,
+      [`sentRequests/${friendUid}/${uid}`]: null,
+    };
+    try {
+      await update(ref(database), updates);
+    } catch (err) {
+      Alert.alert('Feil', err.message || 'Kunne ikke godta forespørsel.');
+    }
+  };
+
+  const declineRequest = async (req) => {
+    if (!uid || !req?.fromUid) return;
+    const friendUid = req.fromUid;
+    try {
+      await update(ref(database), {
+        [`friendRequests/${uid}/${friendUid}`]: null,
+        [`sentRequests/${friendUid}/${uid}`]: null,
+      });
+    } catch (err) {
+      Alert.alert('Feil', err.message || 'Kunne ikke avslå forespørsel.');
     }
   };
 
@@ -302,7 +367,7 @@ export default function FriendsScreen({ navigation }) {
           <View style={[styles.card, { marginTop: 12 }]}> 
             <Text style={styles.cardTitle}>{searchResult.profile.username}</Text>
             <Text style={styles.cardSubtitle}>{searchResult.profile.email || 'Ingen e-post'}</Text>
-            <Button title="Legg til venn" onPress={handleAddFriend} />
+            <Button title="Send venneforespørsel" onPress={handleSendRequest} />
           </View>
         ) : null}
         {suggestions.length ? (
@@ -335,6 +400,29 @@ export default function FriendsScreen({ navigation }) {
           <FlatList data={friends} keyExtractor={(item) => item.uid} renderItem={renderFriend} />
         ) : (
           <Text style={styles.emptyText}>Ingen venner ennå. Legg til en venn for å starte.</Text>
+        )}
+      </View>
+
+      {/* Mottatte venneforespørsler */}
+      <View style={{ marginTop: 24 }}>
+        <Text style={styles.screenTitle}>Venneforespørsler</Text>
+        {incoming.length ? (
+          <FlatList
+            data={incoming}
+            keyExtractor={(item) => item.fromUid}
+            renderItem={({ item }) => (
+              <View style={styles.card}>
+                <Text style={styles.cardTitle}>{item.fromName || item.fromUid}</Text>
+                <Text style={styles.cardSubtitle}>{item.fromEmail || ''}</Text>
+                <View style={{ flexDirection: 'row', gap: 12, marginTop: 8 }}>
+                  <Button title="Godta" onPress={() => acceptRequest(item)} />
+                  <Button title="Avslå" color="#dc2626" onPress={() => declineRequest(item)} />
+                </View>
+              </View>
+            )}
+          />
+        ) : (
+          <Text style={styles.emptyText}>Ingen nye forespørsler.</Text>
         )}
       </View>
 

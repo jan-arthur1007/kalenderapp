@@ -33,10 +33,9 @@ export async function linkGoogleCalendar(user) {
   }
 
   const startUrl = `${AUTH_START_URL}?uid=${encodeURIComponent(user.uid)}`;
-  const result = await WebBrowser.openBrowserAsync(startUrl);
-  if (result.type === 'cancel' || result.type === 'dismiss') {
-    throw new Error('Google-autentiseringen ble avbrutt før den var ferdig.');
-  }
+  // Resultatet fra WebBrowser kan være "dismiss" selv om vi får code via backend,
+  // så vi stoler på polling etterpå i stedet for å kaste på cancel/dismiss.
+  await WebBrowser.openBrowserAsync(startUrl);
 
   const tokenData = await waitForToken(user.uid);
   if (!tokenData) {

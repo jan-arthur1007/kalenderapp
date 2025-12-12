@@ -25,7 +25,13 @@ const routeIcon = (name, focused) => {
   }
 };
 
-export default function MainTabs({ appointments, addAppointment, groups }) {
+export default function MainTabs({
+  appointments,
+  addAppointment,
+  updateAppointment,
+  deleteAppointment,
+  groups,
+}) {
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -39,7 +45,14 @@ export default function MainTabs({ appointments, addAppointment, groups }) {
       })}
     >
       <Tab.Screen name="Home" options={{ title: 'Hjem' }}>
-        {(props) => <HomeScreen {...props} appointments={appointments} />}
+        {(props) => (
+          <HomeScreen
+            {...props}
+            appointments={appointments}
+            updateAppointment={updateAppointment}
+            deleteAppointment={deleteAppointment}
+          />
+        )}
       </Tab.Screen>
       <Tab.Screen name="MakeAppointment" options={{ title: 'Ny avtale' }}>
         {(props) => (

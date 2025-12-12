@@ -15,16 +15,18 @@ import {
 import DateTimePicker from '@react-native-community/datetimepicker';
 import styles from '../styles /styles';
 import { fetchGroupFreeBusy } from '../services/freeBusy';
+import { createCalendarEvent } from '../services/calendarEvents';
+import { auth } from '../database/firebase';
 
 // Formaterer datetime til YYYY-MM-DD HH:MM (for visning)
-const formatDateTimeForDisplay = (date) => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  const hour = String(date.getHours()).padStart(2, '0');
-  const minute = String(date.getMinutes()).padStart(2, '0');
-  return `${year}-${month}-${day} ${hour}:${minute}`;
-};
+const formatDateTimeForDisplay = (date) =>
+  date.toLocaleString('no-NO', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 
 // Brukes til å vise valgt tidsrom som tekst
 const buildRangeLabel = (startDate, endDate) =>
@@ -246,7 +248,21 @@ export default function MakeAppointemnt({ navigation, addAppointment, groups = [
     if (typeof addAppointment === 'function') {
       try {
         setSaving(true);
-        await addAppointment(item);
+        const appointmentId = await addAppointment(item);
+        // Forsøk å legge avtalen i Google-kalender for alle deltakere (best effort)
+        const current = auth.currentUser;
+        if (appointmentId && current) {
+          createCalendarEvent({
+            appointmentId,
+            title: item.title,
+            description: item.description,
+            startsAt: item.startsAt,
+            endsAt: item.endsAt,
+            groupId: item.groupId,
+          }).catch((err) => {
+            console.log('Kunne ikke opprette Google-event:', err);
+          });
+        }
         setTitle('');
         setDescription('');
         const now = createInitialStart();
