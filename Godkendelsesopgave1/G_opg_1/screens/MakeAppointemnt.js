@@ -10,9 +10,11 @@ import {
   TouchableOpacity,
   StyleSheet,
   Platform,
+  ScrollView,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import styles from '../styles /styles';
+import { fetchGroupFreeBusy } from '../services/freeBusy';
 
 // Formaterer datetime til YYYY-MM-DD HH:MM (for visning)
 const formatDateTimeForDisplay = (date) => {
@@ -28,11 +30,44 @@ const formatDateTimeForDisplay = (date) => {
 const buildRangeLabel = (startDate, endDate) =>
   `${formatDateTimeForDisplay(startDate)} - ${formatDateTimeForDisplay(endDate)}`;
 
+const startOfDay = (date = new Date()) => {
+  const next = new Date(date);
+  next.setHours(0, 0, 0, 0);
+  return next;
+};
+
+const endOfDay = (date = new Date()) => {
+  const next = new Date(date);
+  next.setHours(23, 59, 59, 999);
+  return next;
+};
+
 // Sikrer at vi starter på nærmeste minutter og ikke har sekunder
 const createInitialStart = () => {
   const now = new Date();
   now.setSeconds(0, 0);
   return now;
+};
+
+// Begrens visning og forslag til arbeidstid
+const WORK_START_HOUR = 8;
+const WORK_END_HOUR = 22;
+
+const clampSlotToWorkHours = (slot) => {
+  const start = new Date(slot.start);
+  const end = new Date(slot.end);
+  const clampedStart = new Date(start);
+  const clampedEnd = new Date(end);
+
+  if (clampedStart.getHours() < WORK_START_HOUR) {
+    clampedStart.setHours(WORK_START_HOUR, 0, 0, 0);
+  }
+  if (clampedEnd.getHours() > WORK_END_HOUR) {
+    clampedEnd.setHours(WORK_END_HOUR, 0, 0, 0);
+  }
+
+  if (clampedStart >= clampedEnd) return null;
+  return { start: clampedStart, end: clampedEnd };
 };
 
 // Hjelper til med å hoppe frem 30 min (default varighet)
@@ -44,12 +79,7 @@ const thirtyMinutesFrom = (date) => {
 };
 
 // Gjenbrukbar komponent for å plukke dato og tid (iOS/Android)
-function DateTimeWheelField({
-  label,
-  value,
-  onChange,
-  minimumDate,
-}) {
+function DateTimeWheelField({ label, value, onChange, minimumDate, mode = 'datetime' }) {
   const [isVisible, setIsVisible] = useState(false);
   const [pendingDate, setPendingDate] = useState(value);
 
@@ -97,7 +127,7 @@ function DateTimeWheelField({
       {isVisible && Platform.OS === 'android' && (
         <DateTimePicker
           value={value}
-          mode="datetime"
+          mode={mode}
           display="spinner"
           minimumDate={minimumDate}
           onChange={onPickerChange}
@@ -119,7 +149,7 @@ function DateTimeWheelField({
               </View>
               <DateTimePicker
                 value={pendingDate}
-                mode="datetime"
+                mode={mode}
                 display="spinner"
                 minimumDate={minimumDate}
                 onChange={onPickerChange}
@@ -138,11 +168,23 @@ export default function MakeAppointemnt({ navigation, addAppointment, groups = [
   const [title, setTitle] = useState('');
   const [startDateTime, setStartDateTime] = useState(() => createInitialStart());
   const [endDateTime, setEndDateTime] = useState(() => thirtyMinutesFrom(createInitialStart()));
-  const [participants, setParticipants] = useState('');
   const [description, setDescription] = useState('');
   const [groupPickerVisible, setGroupPickerVisible] = useState(false);
   const [selectedGroupId, setSelectedGroupId] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [suggestions, setSuggestions] = useState([]);
+  const [suggestionsError, setSuggestionsError] = useState('');
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+  const [missingMembers, setMissingMembers] = useState([]);
+  const [windowStart, setWindowStart] = useState(() => startOfDay());
+  const [windowEnd, setWindowEnd] = useState(() => endOfDay(new Date(Date.now() + 2 * 24 * 60 * 60 * 1000)));
+  const [durationMinutes, setDurationMinutes] = useState(60);
+  const [selectedSlotLabel, setSelectedSlotLabel] = useState('');
+  const [useCustomDuration, setUseCustomDuration] = useState(false);
+  const [customDuration, setCustomDuration] = useState('');
+  const [slotPickerVisible, setSlotPickerVisible] = useState(false);
+  const [slotPickerRange, setSlotPickerRange] = useState(null);
+  const [slotPickerDate, setSlotPickerDate] = useState(new Date());
 
   // Holder gruppeseleksjon i sync med listen vi mottar som prop
   useEffect(() => {
@@ -151,12 +193,26 @@ export default function MakeAppointemnt({ navigation, addAppointment, groups = [
       return;
     }
     setSelectedGroupId((prev) => (prev && groups.some((group) => group.id === prev) ? prev : null));
+    setSuggestions([]);
+    setSuggestionsError('');
+    setMissingMembers([]);
+    setSelectedSlotLabel('');
   }, [groups]);
 
   // Henter valgt gruppe for enkel tilgang
   const selectedGroup = Array.isArray(groups)
     ? groups.find((group) => group.id === selectedGroupId)
     : null;
+
+  const effectiveDuration = () => {
+    if (useCustomDuration) {
+      const minutes = Number(customDuration);
+      if (Number.isFinite(minutes) && minutes > 0) {
+        return minutes;
+      }
+    }
+    return durationMinutes;
+  };
 
   // Validerer og lagrer ny avtale
   const onSave = async () => {
@@ -170,6 +226,11 @@ export default function MakeAppointemnt({ navigation, addAppointment, groups = [
       return;
     }
 
+    if (!selectedSlotLabel) {
+      Alert.alert('Ingen tidspunkt', 'Velg en foreslått tid før du lagrer avtalen.');
+      return;
+    }
+
     const item = {
       title: title.trim(),
       date: buildRangeLabel(startDateTime, endDateTime),
@@ -179,10 +240,6 @@ export default function MakeAppointemnt({ navigation, addAppointment, groups = [
       groupName: selectedGroup?.name ?? null,
       // Deltakere registreres som kommaseparert tekst og gjøres om til array
       // Deltagerfelt lar bruker skrive manuelle navn i tillegg til gruppen
-      participants: participants
-        .split(',')
-        .map((s) => s.trim())
-        .filter(Boolean),
       description: description.trim(),
     };
 
@@ -191,7 +248,6 @@ export default function MakeAppointemnt({ navigation, addAppointment, groups = [
         setSaving(true);
         await addAppointment(item);
         setTitle('');
-        setParticipants('');
         setDescription('');
         const now = createInitialStart();
         setStartDateTime(now);
@@ -207,8 +263,146 @@ export default function MakeAppointemnt({ navigation, addAppointment, groups = [
     }
   };
 
+  const handleSuggestionFetch = async () => {
+    if (!selectedGroupId) {
+      Alert.alert('Velg gruppe', 'Du må velge en gruppe for å hente forslag.');
+      return;
+    }
+    const searchStart = startOfDay(windowStart).toISOString();
+    const searchEnd = endOfDay(windowEnd).toISOString();
+    try {
+      setLoadingSuggestions(true);
+      setSuggestionsError('');
+      setMissingMembers([]);
+      const data = await fetchGroupFreeBusy(selectedGroupId, {
+        timeMin: searchStart,
+        timeMax: searchEnd,
+      });
+      const minutes = effectiveDuration();
+      const minDurationMs = minutes * 60 * 1000;
+      const slots = (data.freeSlots || [])
+        .map((slot) => ({
+          start: new Date(slot.start),
+          end: new Date(slot.end),
+        }))
+        .map(clampSlotToWorkHours)
+        .filter(Boolean)
+        .filter((slot) => slot.end - slot.start >= minDurationMs)
+        .slice(0, 3);
+      setSuggestions(slots);
+      setMissingMembers(data.missingMembers || []);
+      if (!slots.length) {
+        setSuggestionsError('Fant ingen felles ledige tider i valgt periode.');
+      }
+    } catch (err) {
+      setSuggestions([]);
+      setSuggestionsError(err.message || 'Kunne ikke hente forslag.');
+    } finally {
+      setLoadingSuggestions(false);
+    }
+  };
+
+  const applySuggestion = (slot) => {
+    if (!slot) return;
+    const clamped = clampSlotToWorkHours(slot);
+    if (!clamped) {
+      setSuggestionsError('Tidsrommet er utenfor 08:00-22:00.');
+      return;
+    }
+    const durationMs = effectiveDuration() * 60 * 1000;
+    const latestStart = new Date(clamped.end.getTime() - durationMs);
+    if (latestStart < clamped.start) {
+      setSuggestionsError('Tidsrommet er for kort for valgt varighet.');
+      return;
+    }
+
+    // Hvis intervallet er større enn varigheten, la bruker velge starttid innenfor intervallet
+    if (clamped.end - clamped.start > durationMs + 5 * 60 * 1000) {
+      setSlotPickerRange({ start: clamped.start, end: clamped.end });
+      setSlotPickerDate(clamped.start);
+      setSlotPickerVisible(true);
+      return;
+    }
+
+    const start = clamped.start;
+    const end = new Date(start.getTime() + durationMs);
+    setStartDateTime(start);
+    setEndDateTime(end);
+    setSelectedSlotLabel(buildRangeLabel(start, end));
+  };
+
   return (
-    <View style={styles.screenContainer}>
+    <ScrollView
+      style={{ flex: 1 }}
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="on-drag"
+      scrollsToTop={false}
+      contentInsetAdjustmentBehavior="never"
+      contentContainerStyle={localStyles.scrollContent}
+    >
+      {slotPickerVisible && slotPickerRange && (
+        <Modal transparent animationType="slide" visible={slotPickerVisible}>
+          <View style={localStyles.modalBackdrop}>
+            <View style={localStyles.modalCard}>
+              <View style={localStyles.modalHeader}>
+                <Text style={localStyles.modalTitle}>Velg starttid</Text>
+                <Button title="Avbryt" onPress={() => setSlotPickerVisible(false)} />
+              </View>
+              <DateTimePicker
+                value={slotPickerDate}
+                mode="datetime"
+                display="spinner"
+                minimumDate={slotPickerRange.start}
+                maximumDate={new Date(slotPickerRange.end.getTime() - effectiveDuration() * 60 * 1000)}
+                onChange={(event, date) => {
+                  if (Platform.OS === 'android') {
+                    if (event.type === 'dismissed') {
+                      setSlotPickerVisible(false);
+                      return;
+                    }
+                    const chosen = date || slotPickerDate;
+                    const start = new Date(
+                      Math.min(
+                        Math.max(chosen.getTime(), slotPickerRange.start.getTime()),
+                        slotPickerRange.end.getTime() - effectiveDuration() * 60 * 1000
+                      )
+                    );
+                    const end = new Date(start.getTime() + effectiveDuration() * 60 * 1000);
+                    setStartDateTime(start);
+                    setEndDateTime(end);
+                    setSelectedSlotLabel(buildRangeLabel(start, end));
+                    setSlotPickerVisible(false);
+                  } else {
+                    setSlotPickerDate(date || slotPickerDate);
+                  }
+                }}
+              />
+              {Platform.OS === 'ios' && (
+                <View style={{ paddingHorizontal: 20, paddingVertical: 12 }}>
+                  <Button
+                    title="Bruk"
+                    onPress={() => {
+                      const chosen = slotPickerDate || slotPickerRange.start;
+                      const start = new Date(
+                        Math.min(
+                          Math.max(chosen.getTime(), slotPickerRange.start.getTime()),
+                          slotPickerRange.end.getTime() - effectiveDuration() * 60 * 1000
+                        )
+                      );
+                      const end = new Date(start.getTime() + effectiveDuration() * 60 * 1000);
+                      setStartDateTime(start);
+                      setEndDateTime(end);
+                      setSelectedSlotLabel(buildRangeLabel(start, end));
+                      setSlotPickerVisible(false);
+                    }}
+                  />
+                </View>
+              )}
+            </View>
+          </View>
+        </Modal>
+      )}
+
       <Text style={styles.screenTitle}>Lag ny avtale</Text>
 
       <View style={styles.formGroup}>
@@ -222,29 +416,82 @@ export default function MakeAppointemnt({ navigation, addAppointment, groups = [
       </View>
 
       <View style={styles.formGroup}>
-        <Text style={styles.label}>Periode</Text>
+        <Text style={styles.label}>Periode (dager)</Text>
         <DateTimeWheelField
-          label="Start"
-          value={startDateTime}
+          label="Fra"
+          mode="date"
+          value={windowStart}
           onChange={(date) => {
-            setStartDateTime(date);
-            if (date >= endDateTime) {
-              setEndDateTime(thirtyMinutesFrom(date));
+            const normalized = startOfDay(date);
+            setWindowStart(normalized);
+            if (windowEnd < normalized) {
+              setWindowEnd(endOfDay(normalized));
             }
           }}
         />
         <DateTimeWheelField
-          label="Slutt"
-          value={endDateTime}
-          minimumDate={startDateTime}
+          label="Til"
+          mode="date"
+          value={windowEnd}
+          minimumDate={windowStart}
           onChange={(date) => {
-            if (date <= startDateTime) {
-              setEndDateTime(thirtyMinutesFrom(startDateTime));
-            } else {
-              setEndDateTime(date);
-            }
+            const normalized = endOfDay(date);
+            setWindowEnd(normalized);
           }}
         />
+      </View>
+
+      <View style={styles.formGroup}>
+        <Text style={styles.label}>Varighet</Text>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+          {[30, 60, 90, 120].map((minutes) => (
+            <TouchableOpacity
+              key={minutes}
+              style={[
+                localStyles.durationChip,
+                !useCustomDuration && durationMinutes === minutes && localStyles.durationChipActive,
+              ]}
+              onPress={() => {
+                setUseCustomDuration(false);
+                setDurationMinutes(minutes);
+              }}
+            >
+              <Text
+                style={[
+                  localStyles.durationChipLabel,
+                  !useCustomDuration && durationMinutes === minutes && localStyles.durationChipLabelActive,
+                ]}
+              >
+                {minutes < 60 ? `${minutes} min` : `${minutes / 60} t`}
+              </Text>
+            </TouchableOpacity>
+          ))}
+          <TouchableOpacity
+            style={[
+              localStyles.durationChip,
+              useCustomDuration && localStyles.durationChipActive,
+            ]}
+            onPress={() => setUseCustomDuration(true)}
+          >
+            <Text
+              style={[
+                localStyles.durationChipLabel,
+                useCustomDuration && localStyles.durationChipLabelActive,
+              ]}
+            >
+              Egendefinert
+            </Text>
+          </TouchableOpacity>
+        </View>
+        {useCustomDuration && (
+          <TextInput
+            placeholder="Minutter (f.eks. 75)"
+            keyboardType="numeric"
+            value={customDuration}
+            onChangeText={setCustomDuration}
+            style={[styles.input, { marginTop: 8 }]}
+          />
+        )}
       </View>
 
       {/* Valgfri gruppetilknytning */}
@@ -302,16 +549,45 @@ export default function MakeAppointemnt({ navigation, addAppointment, groups = [
           <Text style={styles.emptyText}>Ingen grupper tilgjengelig. Opprett en under Venner.</Text>
         )}
       </View>
-
-      <View style={styles.formGroup}>
-        <Text style={styles.label}>Deltakere (kommaseparert)</Text>
-        <TextInput
-          placeholder="Anna, Jonas, ..."
-          value={participants}
-          onChangeText={setParticipants}
-          style={styles.input}
-        />
-      </View>
+      {selectedGroupId ? (
+        <View style={styles.formGroup}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Text style={styles.label}>Felles ledige tider</Text>
+            <Button
+              title={loadingSuggestions ? 'Henter...' : 'Finn ledige tider'}
+              onPress={handleSuggestionFetch}
+              disabled={loadingSuggestions}
+            />
+          </View>
+          {missingMembers.length ? (
+            <Text style={[styles.emptyText, { color: '#92400e', marginTop: 4 }]}>
+              Mangler kalender for: {missingMembers.join(', ')}
+            </Text>
+          ) : null}
+          {selectedSlotLabel ? (
+            <Text style={[styles.emptyText, { color: '#2563eb', marginTop: 4 }]}>
+              Valgt tidspunkt: {selectedSlotLabel}
+            </Text>
+          ) : null}
+          {suggestionsError ? (
+            <Text style={[styles.emptyText, { color: '#dc2626', marginTop: 4 }]}>
+              {suggestionsError}
+            </Text>
+          ) : null}
+          {suggestions.map((slot) => (
+            <TouchableOpacity
+              key={`${slot.start}-${slot.end}`}
+              style={localStyles.suggestionRow}
+              onPress={() => applySuggestion(slot)}
+            >
+              <Text style={localStyles.suggestionLabel}>
+                {buildRangeLabel(new Date(slot.start), new Date(slot.end))}
+              </Text>
+              <Text style={localStyles.suggestionAction}>Bruk</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      ) : null}
 
       <View style={styles.formGroup}>
         <Text style={styles.label}>Beskrivelse</Text>
@@ -325,7 +601,7 @@ export default function MakeAppointemnt({ navigation, addAppointment, groups = [
       </View>
 
       <Button title={saving ? 'Lagrer…' : 'Lagre avtale'} onPress={onSave} disabled={saving} />
-    </View>
+    </ScrollView>
   );
 }
 
@@ -381,5 +657,50 @@ const localStyles = StyleSheet.create({
   optionLabel: {
     fontSize: 15,
     color: '#1f2937',
+  },
+  durationChip: {
+    borderWidth: 1,
+    borderColor: '#94a3b8',
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  durationChipActive: {
+    backgroundColor: '#2563eb',
+    borderColor: '#2563eb',
+  },
+  durationChipLabel: {
+    color: '#1f2937',
+    fontSize: 14,
+  },
+  durationChipLabelActive: {
+    color: '#fff',
+    fontWeight: '600',
+  },
+  suggestionRow: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderRadius: 8,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  suggestionLabel: {
+    fontSize: 14,
+    color: '#111827',
+    flex: 1,
+    marginRight: 8,
+  },
+  suggestionAction: {
+    color: '#2563eb',
+    fontWeight: '600',
+  },
+  scrollContent: {
+    padding: 16,
+    paddingBottom: 160,
+    backgroundColor: '#f7f7fb',
   },
 });

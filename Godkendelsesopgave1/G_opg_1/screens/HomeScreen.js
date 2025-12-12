@@ -23,87 +23,58 @@ import { get, ref } from 'firebase/database';
 
 const DEFAULT_RANGE_DAYS = 3;
 
-const computeFreeSlots = (timeMin, timeMax, calendars = {}) => {
-  const windowStart = new Date(timeMin);
-  const windowEnd = new Date(timeMax);
-  const busy = (calendars.primary?.busy || [])
-    .map((entry) => ({
-      start: new Date(entry.start),
-      end: new Date(entry.end),
-    }))
-    .sort((a, b) => a.start - b.start);
-
-  let cursor = new Date(windowStart);
-  const slots = [];
-
-  busy.forEach((interval) => {
-    const start = new Date(interval.start);
-    const end = new Date(interval.end);
-    if (end <= cursor) {
-      if (end > cursor) cursor = end;
-      return;
-    }
-    if (start > cursor) {
-      slots.push({ start: new Date(cursor), end: new Date(start) });
-    }
-    if (end > cursor) {
-      cursor = new Date(end);
-    }
-  });
-
-  if (cursor < windowEnd) {
-    slots.push({ start: cursor, end: windowEnd });
-  }
-  return slots;
-};
-
-const formatSlotLabel = (slot) => {
+const formatIntervalLabel = (slot) => {
   const options = { hour: '2-digit', minute: '2-digit' };
   return `${slot.start.toLocaleDateString()} ${slot.start.toLocaleTimeString([], options)} – ${slot.end.toLocaleTimeString([], options)}`;
 };
 
 export default function HomeScreen({ navigation, appointments = [] }) {
-  const [availability, setAvailability] = useState([]);
-  const [availabilityWindow, setAvailabilityWindow] = useState(null);
-  const [availabilityError, setAvailabilityError] = useState('');
-  const [loadingAvailability, setLoadingAvailability] = useState(false);
+  const [busyTimes, setBusyTimes] = useState([]);
+  const [busyWindow, setBusyWindow] = useState(null);
+  const [busyError, setBusyError] = useState('');
+  const [loadingBusy, setLoadingBusy] = useState(false);
 
   const loadAvailability = useCallback(async () => {
     if (!hasGoogleClientId()) {
-      setAvailability([]);
-      setAvailabilityWindow(null);
-      setAvailabilityError('');
+      setBusyTimes([]);
+      setBusyWindow(null);
+      setBusyError('');
       return;
     }
     const now = new Date();
     const timeMin = now.toISOString();
     const timeMax = new Date(now.getTime() + DEFAULT_RANGE_DAYS * 24 * 60 * 60 * 1000).toISOString();
     try {
-      setLoadingAvailability(true);
-      setAvailabilityError('');
+      setLoadingBusy(true);
+      setBusyError('');
       const current = auth.currentUser;
       if (!current) {
-        setAvailability([]);
-        setAvailabilityWindow(null);
-        setAvailabilityError('Logg inn for å vise ledige tider.');
+        setBusyTimes([]);
+        setBusyWindow(null);
+        setBusyError('Logg inn for å vise kalenderen.');
         return;
       }
       const tokenSnap = await get(ref(database, `calendarTokens/${current.uid}`));
       if (!tokenSnap.exists()) {
-        setAvailability([]);
-        setAvailabilityWindow(null);
-        setAvailabilityError('Google-kalenderen er ikke koblet til denne brukeren enda.');
+        setBusyTimes([]);
+        setBusyWindow(null);
+        setBusyError('Google-kalenderen er ikke koblet til denne brukeren enda.');
         return;
       }
       const tokens = tokenSnap.val();
       const data = await requestFreeBusy(tokens.accessToken, { timeMin, timeMax });
-      const slots = computeFreeSlots(data.timeMin || timeMin, data.timeMax || timeMax, data.calendars || {});
-      setAvailability(slots);
-      setAvailabilityWindow({ timeMin: data.timeMin || timeMin, timeMax: data.timeMax || timeMax });
+      const busy = (data.calendars?.primary?.busy || [])
+        .map((entry) => ({
+          start: new Date(entry.start),
+          end: new Date(entry.end),
+        }))
+        .sort((a, b) => a.start - b.start);
+      setBusyTimes(busy);
+      setBusyWindow({ timeMin: data.timeMin || timeMin, timeMax: data.timeMax || timeMax });
     } catch (err) {
-      setAvailabilityError(err.message || 'Kunne ikke hente tilgjengelighet.');
+      setBusyError(err.message || 'Kunne ikke hente kalenderdata.');
     } finally {
-      setLoadingAvailability(false);
+      setLoadingBusy(false);
     }
   }, []);
 
@@ -133,55 +104,62 @@ export default function HomeScreen({ navigation, appointments = [] }) {
   }, []);
 
   // Renders ett listeelement (avtale-kort)
-  const renderItem = ({ item }) => (
-    <TouchableOpacity
-      style={styles.card}
-      // Navigerer til detaljskjermen og sender med valgt avtale
-      onPress={() => navigation.navigate('AppointmentDetails', { appointment: item })}
-    >
-      <View style={styles.cardHeaderRow}>
-        <Text style={styles.cardTitle}>{item.title}</Text>
-        <Text style={styles.cardDate}>{item.date}</Text>
-      </View>
-      {/* Viser gruppetilknytning dersom avtalen er delt */}
-      {item.groupName ? (
-        <Text style={styles.cardSubtitle} numberOfLines={1}>
-          Gruppe: {item.groupName}
-        </Text>
-      ) : null}
-      <Text style={styles.cardSubtitle} numberOfLines={1}>
-        Deltakere: {(item.participants || []).join(', ')}
-      </Text>
-    </TouchableOpacity>
-  );
+  const renderItem = ({ item }) => {
+    const participantsText =
+      item.participants && item.participants.length
+        ? item.participants.join(', ')
+        : '—';
 
-  const availabilityHeader = useMemo(() => {
+    return (
+      <TouchableOpacity
+        style={styles.card}
+        // Navigerer til detaljskjermen og sender med valgt avtale
+        onPress={() => navigation.navigate('AppointmentDetails', { appointment: item })}
+      >
+        <View style={styles.cardHeaderRow}>
+          <Text style={styles.cardTitle}>{item.title}</Text>
+          <Text style={styles.cardDate}>{item.date}</Text>
+        </View>
+        {/* Viser gruppetilknytning dersom avtalen er delt */}
+        {item.groupName ? (
+          <Text style={styles.cardSubtitle} numberOfLines={1}>
+            Gruppe: {item.groupName}
+          </Text>
+        ) : null}
+        <Text style={styles.cardSubtitle} numberOfLines={1}>
+          Deltakere: {participantsText}
+        </Text>
+      </TouchableOpacity>
+    );
+  };
+
+  const busyHeader = useMemo(() => {
     if (!hasGoogleClientId()) {
       return (
         <Text style={styles.cardSubtitle}>
-          Koble til Google for å vise ledige tider.
+          Koble til Google for å vise kalenderen.
         </Text>
       );
     }
-    if (loadingAvailability) {
+    if (loadingBusy) {
       return <ActivityIndicator color="#2563eb" style={{ marginTop: 12 }} />;
     }
-    if (availabilityError) {
+    if (busyError) {
       return (
         <Text style={[styles.cardSubtitle, { color: '#dc2626' }]}>
-          {availabilityError}
+          {busyError}
         </Text>
       );
     }
-    if (!availability.length) {
-      return <Text style={styles.cardSubtitle}>Ingen ledige tider i valgt periode.</Text>;
+    if (!busyTimes.length) {
+      return <Text style={styles.cardSubtitle}>Ingen opptatte tider i valgt periode.</Text>;
     }
-    return availability.slice(0, 5).map((slot, index) => (
+    return busyTimes.slice(0, 5).map((slot, index) => (
       <View key={`${slot.start.toISOString()}-${index}`} style={{ marginTop: index === 0 ? 12 : 8 }}>
-        <Text style={styles.cardSubtitle}>{formatSlotLabel(slot)}</Text>
+        <Text style={styles.cardSubtitle}>{formatIntervalLabel(slot)}</Text>
       </View>
     ));
-  }, [availability, availabilityError, loadingAvailability]);
+  }, [busyTimes, busyError, loadingBusy]);
 
   return (
     <View style={styles.screenContainer}>
@@ -201,22 +179,22 @@ export default function HomeScreen({ navigation, appointments = [] }) {
       </TouchableOpacity>
       <View style={[styles.card, { marginBottom: 16 }]}>
         <View style={styles.cardHeaderRow}>
-          <Text style={styles.cardTitle}>Ledige tider</Text>
-          {availabilityWindow ? (
+          <Text style={styles.cardTitle}>Kalender (opptatt)</Text>
+          {busyWindow ? (
             <Text style={styles.cardDate}>
-              {new Date(availabilityWindow.timeMin).toLocaleDateString()} –{' '}
-              {new Date(availabilityWindow.timeMax).toLocaleDateString()}
+              {new Date(busyWindow.timeMin).toLocaleDateString()} –{' '}
+              {new Date(busyWindow.timeMax).toLocaleDateString()}
             </Text>
           ) : null}
         </View>
-        {availabilityHeader}
+        {busyHeader}
         <TouchableOpacity
           style={{ marginTop: 12 }}
           onPress={loadAvailability}
-          disabled={loadingAvailability}
+          disabled={loadingBusy}
         >
           <Text style={{ color: '#2563eb', fontWeight: '600' }}>
-            {loadingAvailability ? 'Oppdaterer...' : 'Oppdater'}
+            {loadingBusy ? 'Oppdaterer...' : 'Oppdater'}
           </Text>
         </TouchableOpacity>
       </View>
