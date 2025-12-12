@@ -63,6 +63,32 @@ async function refreshAccessToken(refreshToken) {
   return json;
 }
 
+async function insertCalendarEvent(accessToken, { summary, description, startDateTime, endDateTime, attendees }) {
+  const resp = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      summary,
+      description,
+      start: { dateTime: startDateTime },
+      end: { dateTime: endDateTime },
+      attendees: attendees?.length ? attendees.map((email) => ({ email })) : undefined,
+      reminders: { useDefault: true },
+      sendUpdates: 'all',
+    }),
+  });
+
+  const json = await resp.json().catch(() => ({}));
+  if (!resp.ok) {
+    const message = json.error?.message || 'Kunne ikke opprette kalenderhendelse.';
+    throw new Error(message);
+  }
+  return json;
+}
+
 // 1) START: /authStart – appen treffer dette via nettleser
 exports.authStart = functions.https.onRequest(async (req, res) => {
   try {
@@ -78,7 +104,11 @@ exports.authStart = functions.https.onRequest(async (req, res) => {
     const state = encodeURIComponent(uid);
 
     // Du kan bytte scope her om du vil
-    const scope = 'https://www.googleapis.com/auth/calendar.freebusy';
+    const scope = [
+      'https://www.googleapis.com/auth/calendar.events',
+      'https://www.googleapis.com/auth/calendar.readonly',
+      'https://www.googleapis.com/auth/calendar.freebusy',
+    ].join(' ');
 
     const url = buildGoogleAuthUrl({ scope, state });
 
@@ -404,5 +434,99 @@ exports.groupFreeBusy = functions.https.onRequest(async (req, res) => {
   } catch (err) {
     console.error('groupFreeBusy error', err);
     res.status(500).send('Noe gikk galt under gruppearbeidet.');
+  }
+  });
+
+// 5) OPPRETT EVENT: Oppretter kalenderhendelse for alle deltakere (krever write-scope)
+exports.createEvent = functions.https.onRequest(async (req, res) => {
+  try {
+    if (req.method !== 'POST') {
+      return res.status(405).send('Kun POST er støttet.');
+    }
+
+    const authHeader = req.headers.authorization || '';
+    const idToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    if (!idToken) {
+      return res.status(401).send('Mangler ID-token');
+    }
+
+    const decoded = await auth.verifyIdToken(idToken);
+    const uid = decoded.uid;
+
+    const {
+      appointmentId,
+      title,
+      description = '',
+      startsAt,
+      endsAt,
+      groupId,
+    } = req.body || {};
+
+    if (!appointmentId || !title || !startsAt || !endsAt) {
+      return res.status(400).send('Mangler felter (appointmentId, title, startsAt, endsAt).');
+    }
+
+    // Bekreft at avtalen tilhører bruker
+    const ownerSnap = await db.ref(`appointments/${uid}/${appointmentId}`).once('value');
+    if (!ownerSnap.exists()) {
+      return res.status(403).send('Fant ikke avtale for bruker.');
+    }
+
+    // Hent deltakere (gruppemedlemmer) om gruppe finnes
+    let attendees = [];
+    if (groupId) {
+      const groupSnap = await db.ref(`groups/${groupId}/members`).once('value');
+      if (groupSnap.exists()) {
+        const members = groupSnap.val() || {};
+        attendees = Object.values(members)
+          .map((m) => m.email || null)
+          .filter(Boolean);
+      }
+    }
+
+    // Fallback til eierens e-post
+    if (!attendees.length && decoded.email) {
+      attendees = [decoded.email];
+    }
+
+    // Bruk kun eierens kalender: hent token
+    const tokenSnap = await db.ref(`calendarTokens/${uid}`).once('value');
+    const tokenData = tokenSnap.val();
+    if (!tokenData) {
+      return res.status(400).send('Mangler Google-token for eier. Koble til Google på nytt.');
+    }
+
+    let accessToken = tokenData.accessToken;
+    const expiresAt = tokenData.expiresAt || 0;
+    if (Date.now() > expiresAt && tokenData.refreshToken) {
+      try {
+        const refreshed = await refreshAccessToken(tokenData.refreshToken);
+        accessToken = refreshed.access_token;
+        await db.ref(`calendarTokens/${uid}`).update({
+          accessToken,
+          expiresAt: refreshed.expires_in ? Date.now() + refreshed.expires_in * 1000 : null,
+          updatedAt: Date.now(),
+        });
+      } catch (refreshErr) {
+        return res.status(400).send('Kunne ikke refreshe token for eier. Koble til Google på nytt.');
+      }
+    }
+
+    const json = await insertCalendarEvent(accessToken, {
+      summary: title,
+      description,
+      startDateTime: startsAt,
+      endDateTime: endsAt,
+      attendees,
+    });
+
+    return res.status(200).json({
+      createdFor: 1,
+      eventId: json.id,
+      attendeesAdded: attendees.length,
+    });
+  } catch (err) {
+    console.error('createEvent error', err);
+    return res.status(500).send(err.message || 'Kunne ikke opprette kalenderhendelse.');
   }
   });
