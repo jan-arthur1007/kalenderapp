@@ -21,7 +21,7 @@ import {
   hasGoogleClientId,
   promptMissingClientId,
 } from '../services/googleCalendar';
-import { requestFreeBusy } from '../services/freeBusy';
+import { requestFreeBusyViaBackend } from '../services/freeBusy';
 import { database } from '../database/firebase';
 import { get, ref } from 'firebase/database';
 
@@ -114,8 +114,8 @@ export default function HomeScreen({
         setBusyError('Google-kalenderen er ikke koblet til denne brukeren enda.');
         return;
       }
-      const tokens = tokenSnap.val();
-      const data = await requestFreeBusy(tokens.accessToken, { timeMin, timeMax });
+
+      const data = await requestFreeBusyViaBackend({ timeMin, timeMax });
       const busy = (data.calendars?.primary?.busy || [])
         .map((entry) => ({
           start: new Date(entry.start),
@@ -166,7 +166,7 @@ export default function HomeScreen({
         style: 'destructive',
         onPress: async () => {
           try {
-            await deleteAppointment(item.id);
+            await deleteAppointment(item);
           } catch (err) {
             Alert.alert('Kunne ikke slette', err.message || 'Prøv igjen.');
           }
@@ -231,11 +231,6 @@ export default function HomeScreen({
           Deltakere: {participantsText}
         </Text>
         <View style={{ flexDirection: 'row', marginTop: 8, gap: 12 }}>
-          {updateAppointment ? (
-            <TouchableOpacity onPress={() => startEdit(item)}>
-              <Text style={{ color: '#2fad67', fontWeight: '600' }}>Rediger</Text>
-            </TouchableOpacity>
-          ) : null}
           {deleteAppointment ? (
             <TouchableOpacity onPress={() => handleDelete(item)}>
               <Text style={{ color: '#dc2626', fontWeight: '600' }}>Slett</Text>
@@ -320,37 +315,6 @@ export default function HomeScreen({
         ListEmptyComponent={<Text style={styles.emptyText}>Ingen avtaler enda</Text>}
       />
 
-      {/* Redigeringsmodal */}
-      {editVisible && (
-        <Modal visible transparent animationType="fade">
-          <View style={localStyles.backdrop}>
-            <View style={localStyles.modalCard}>
-              <Text style={localStyles.modalTitle}>Rediger avtale</Text>
-              <TextInput
-                value={editTitle}
-                onChangeText={setEditTitle}
-                placeholder="Tittel"
-                style={localStyles.input}
-              />
-              <TextInput
-                value={editDescription}
-                onChangeText={setEditDescription}
-                placeholder="Beskrivelse"
-                multiline
-                style={[localStyles.input, { height: 80 }]}
-              />
-              <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 12 }}>
-                <TouchableOpacity onPress={() => setEditVisible(false)}>
-                  <Text style={localStyles.cancel}>Avbryt</Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={handleUpdate}>
-                  <Text style={localStyles.save}>Lagre</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        </Modal>
-      )}
     </SafeAreaView>
   );
 }

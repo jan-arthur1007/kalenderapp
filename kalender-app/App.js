@@ -34,7 +34,7 @@ export default function App() {
     [uid]
   );
   const deleteAppointment = useMemo(
-    () => (id) => deleteAppointmentAction(uid, id),
+    () => (item) => deleteAppointmentAction(uid, item),
     [uid]
   );
 

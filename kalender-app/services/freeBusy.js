@@ -7,6 +7,12 @@ const GROUP_FUNCTION_URL =
   process.env.EXPO_PUBLIC_GROUP_FREE_BUSY_URL ||
   '';
 
+const FETCH_FREE_BUSY_URL =
+  Constants.expoConfig?.extra?.EXPO_PUBLIC_FETCH_FREE_BUSY_URL ||
+  Constants.manifest?.extra?.EXPO_PUBLIC_FETCH_FREE_BUSY_URL ||
+  process.env.EXPO_PUBLIC_FETCH_FREE_BUSY_URL ||
+  '';
+
 export async function requestFreeBusy(accessToken, { timeMin, timeMax }) {
   if (!accessToken) {
     throw new Error('Mangler accessToken for Google-kalender.');
@@ -33,6 +39,32 @@ export async function requestFreeBusy(accessToken, { timeMin, timeMax }) {
   }
 
   return response.json();
+}
+
+// Bruk backend-funksjonen for å håndtere refresh og tokens (anbefalt for Hjem-skjermen)
+export async function requestFreeBusyViaBackend({ timeMin, timeMax }) {
+  if (!FETCH_FREE_BUSY_URL) {
+    throw new Error('Mangler EXPO_PUBLIC_FETCH_FREE_BUSY_URL i app-konfigurasjonen.');
+  }
+  const current = auth.currentUser;
+  if (!current) {
+    throw new Error('Du må være innlogget.');
+  }
+  const idToken = await current.getIdToken();
+  const body = { timeMin, timeMax };
+  const response = await fetch(FETCH_FREE_BUSY_URL, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${idToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(payload.error || payload.message || 'Kunne ikke hente ledige tider.');
+  }
+  return payload;
 }
 
 export async function fetchGroupFreeBusy(groupId, { timeMin, timeMax } = {}) {

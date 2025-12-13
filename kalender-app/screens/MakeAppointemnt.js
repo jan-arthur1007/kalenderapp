@@ -13,10 +13,12 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import styles from '../styles/styles';
+import styles, { colors } from '../styles/styles';
 import { localStyles } from '../styles/makeAppointmentStyles';
 import { fetchGroupFreeBusy } from '../services/freeBusy';
 import { createCalendarEvent } from '../services/calendarEvents';
+import { ref, update } from 'firebase/database';
+import { database } from '../database/firebase';
 import { auth } from '../database/firebase';
 
 // Formaterer datetime til YYYY-MM-DD HH:MM (for visning)
@@ -262,9 +264,18 @@ export default function MakeAppointemnt({ navigation, addAppointment, groups = [
             startsAt: item.startsAt,
             endsAt: item.endsAt,
             groupId: item.groupId,
-          }).catch((err) => {
-            console.log('Kunne ikke opprette Google-event:', err);
-          });
+          })
+            .then(async (resp) => {
+              if (resp?.eventId) {
+                const updates = {
+                  [`appointments/${current.uid}/${appointmentId}/googleEventId`]: resp.eventId,
+                };
+                await update(ref(database), updates);
+              }
+            })
+            .catch((err) => {
+              console.log('Kunne ikke opprette Google-event:', err);
+            });
         }
         setTitle('');
         setDescription('');
@@ -662,11 +673,19 @@ export default function MakeAppointemnt({ navigation, addAppointment, groups = [
         <View style={styles.formGroup}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
             <Text style={styles.label}>Felles ledige tider</Text>
-            <Button
-              title={loadingSuggestions ? 'Henter...' : 'Finn ledige tider'}
+            <TouchableOpacity
+              style={[
+                styles.primaryButton,
+                { marginTop: 0, paddingHorizontal: 14, paddingVertical: 10 },
+                loadingSuggestions && { opacity: 0.6 },
+              ]}
               onPress={handleSuggestionFetch}
               disabled={loadingSuggestions}
-            />
+            >
+              <Text style={styles.primaryButtonText}>
+                {loadingSuggestions ? 'Henter...' : 'Finn ledige tider'}
+              </Text>
+            </TouchableOpacity>
           </View>
           {missingMembers.length ? (
             <Text style={[styles.emptyText, { color: '#92400e', marginTop: 4 }]}>
@@ -674,7 +693,7 @@ export default function MakeAppointemnt({ navigation, addAppointment, groups = [
             </Text>
           ) : null}
           {selectedSlotLabel ? (
-            <Text style={[styles.emptyText, { color: '#2fad67', marginTop: 4 }]}>
+            <Text style={[styles.emptyText, { color: colors.accent, fontWeight: '700', marginTop: 4 }]}>
               Valgt tidspunkt: {selectedSlotLabel}
             </Text>
           ) : null}
@@ -709,7 +728,13 @@ export default function MakeAppointemnt({ navigation, addAppointment, groups = [
         />
       </View>
 
-      <Button title={saving ? 'Lagrer…' : 'Lagre avtale'} onPress={onSave} disabled={saving} />
+      <TouchableOpacity
+        style={[styles.primaryButton, saving && { opacity: 0.6 }]}
+        onPress={onSave}
+        disabled={saving}
+      >
+        <Text style={styles.primaryButtonText}>{saving ? 'Lagrer…' : 'Lagre avtale'}</Text>
+      </TouchableOpacity>
     </ScrollView>
     </SafeAreaView>
   );

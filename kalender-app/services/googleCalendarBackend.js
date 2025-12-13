@@ -11,6 +11,8 @@ import { database } from '../database/firebase';
 const AUTH_START_URL =
   'https://authstart-3fath7pjmq-uc.a.run.app/authStart';
 
+// Brukes for å forlenge accessToken når det er utløpt (ikke i bruk nå – vi går via backend for refresh)
+
 // Helper for å lese token etter at brukeren har vært i nettleseren
 async function fetchCalendarTokens(uid) {
   const snapshot = await get(ref(database, `calendarTokens/${uid}`));

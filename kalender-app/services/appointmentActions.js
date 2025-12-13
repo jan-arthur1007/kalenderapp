@@ -1,5 +1,6 @@
 import { get, push, ref, update } from 'firebase/database';
 import { auth, database } from '../database/firebase';
+import { deleteCalendarEvent } from './calendarEvents';
 
 const currentUserName = () =>
   auth.currentUser?.displayName ||
@@ -79,12 +80,20 @@ export async function updateAppointment(uid, appointmentId, changes) {
   await update(ref(database), updates);
 }
 
-export async function deleteAppointment(uid, appointmentId) {
+export async function deleteAppointment(uid, appointment) {
   if (!uid) throw new Error('Ingen bruker logget inn');
+  if (!appointment || !appointment.id) return;
+  const appointmentId = appointment.id;
   const snap = await get(ref(database, `appointments/${uid}/${appointmentId}`));
   if (!snap.exists()) return;
   const current = snap.val();
   const groupId = current.groupId || null;
+
+  // Forsøk å slette i Google-kalender hvis vi har eventId
+  if (current.googleEventId) {
+    deleteCalendarEvent({ appointmentId, eventId: current.googleEventId, ownerUid: uid }).catch(() => null);
+  }
+
   const updates = {
     [`appointments/${uid}/${appointmentId}`]: null,
   };

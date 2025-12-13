@@ -365,7 +365,17 @@ const renderFriend = ({ item }) => (
                 autoCapitalize="none"
                 style={[styles.input, { flex: 1, marginRight: 12 }]}
               />
-              <Button title="Søk" onPress={handleSearch} disabled={searching} />
+              <TouchableOpacity
+                onPress={handleSearch}
+                disabled={searching}
+                style={[
+                  styles.primaryButton,
+                  { marginTop: 0, paddingVertical: 10, paddingHorizontal: 14 },
+                  searching && { opacity: 0.6 },
+                ]}
+              >
+                <Text style={styles.primaryButtonText}>{searching ? 'Søker…' : 'Søk'}</Text>
+              </TouchableOpacity>
             </View>
             {searching ? <ActivityIndicator style={{ marginTop: 8 }} /> : null}
             {getResultMessage() ? (

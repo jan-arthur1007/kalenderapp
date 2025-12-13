@@ -530,3 +530,80 @@ exports.createEvent = functions.https.onRequest(async (req, res) => {
     return res.status(500).send(err.message || 'Kunne ikke opprette kalenderhendelse.');
   }
   });
+
+// 6) SLETT EVENT: Sletter kalenderhendelse for eier (krever write-scope)
+exports.deleteEvent = functions.https.onRequest(async (req, res) => {
+  console.log('deleteEvent body:', JSON.stringify(req.body));
+  try {
+    if (req.method !== 'POST') {
+      return res.status(405).send('Kun POST er støttet.');
+    }
+
+    const authHeader = req.headers.authorization || '';
+    const idToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    let uid = null;
+    try {
+      if (idToken) {
+        const decoded = await auth.verifyIdToken(idToken);
+        uid = decoded.uid;
+      }
+    } catch (err) {
+      // Ignorer verifiseringsfeil og bruk ownerUid fra body som fallback
+    }
+
+    const { appointmentId, eventId, ownerUid } = req.body || {};
+
+    const effectiveUid = uid || ownerUid;
+
+    if (!appointmentId || !eventId || !effectiveUid) {
+      return res.status(400).send('Mangler appointmentId, eventId eller ownerUid.');
+    }
+
+    // Forsøk å slette selv om DB-oppføringen er borte (idempotent) – men logg for innsikt
+    const ownerSnap = await db.ref(`appointments/${effectiveUid}/${appointmentId}`).once('value');
+    if (!ownerSnap.exists()) {
+      console.log('deleteEvent: appointment missing in DB, attempting calendar delete anyway');
+    }
+
+    const tokenSnap = await db.ref(`calendarTokens/${effectiveUid}`).once('value');
+    const tokenData = tokenSnap.val();
+    if (!tokenData) {
+      return res.status(400).send('Mangler Google-token for eier. Koble til Google på nytt.');
+    }
+
+    let accessToken = tokenData.accessToken;
+    const expiresAt = tokenData.expiresAt || 0;
+    if (Date.now() > expiresAt && tokenData.refreshToken) {
+      try {
+        const refreshed = await refreshAccessToken(tokenData.refreshToken);
+        accessToken = refreshed.access_token;
+        await db.ref(`calendarTokens/${effectiveUid}`).update({
+          accessToken,
+          expiresAt: refreshed.expires_in ? Date.now() + refreshed.expires_in * 1000 : null,
+          updatedAt: Date.now(),
+        });
+      } catch (refreshErr) {
+        return res.status(400).send('Kunne ikke refreshe token for eier. Koble til Google på nytt.');
+      }
+    }
+
+    // Slett event
+    const resp = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${encodeURIComponent(eventId)}`, {
+      method: 'DELETE',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+
+    if (!resp.ok && resp.status !== 404) {
+      const txt = await resp.text();
+      console.error('delete event error', resp.status, txt);
+      return res.status(500).send('Kunne ikke slette kalenderhendelse.');
+    }
+
+    return res.status(200).json({ deleted: true });
+  } catch (err) {
+    console.error('deleteEvent error', err);
+    return res.status(500).send(err.message || 'Kunne ikke slette kalenderhendelse.');
+  }
+  });

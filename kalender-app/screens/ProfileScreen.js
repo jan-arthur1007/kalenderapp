@@ -1,6 +1,6 @@
 // Profil-fanen viser enkel info om innlogget bruker og lar deg logge ut.
 import React, { useEffect, useState } from 'react';
-import { View, Text, Button, ActivityIndicator, Alert, TouchableOpacity } from 'react-native';
+import { View, Text, ActivityIndicator, Alert, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { onValue, ref } from 'firebase/database';
 import { signOut } from 'firebase/auth';
@@ -105,7 +105,12 @@ export default function ProfileScreen() {
         </Text>
       </TouchableOpacity>
 
-      <Button title="Logg ut" onPress={handleSignOut} />
+      <TouchableOpacity
+        style={[styles.primaryButton, { marginTop: 20 }]}
+        onPress={handleSignOut}
+      >
+        <Text style={styles.primaryButtonText}>Logg ut</Text>
+      </TouchableOpacity>
     </SafeAreaView>
   );
 }
