@@ -9,8 +9,9 @@ import {
   ActivityIndicator,
   TouchableOpacity,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { onValue, ref, update } from 'firebase/database';
-import styles from '../styles /styles';
+import styles from '../styles/styles';
 import { auth, database } from '../database/firebase';
 
 const sanitize = (value = '') =>
@@ -239,7 +240,7 @@ export default function GroupDetailsScreen({ route, navigation }) {
   if (loading || !group) {
     return (
       <View style={[styles.screenContainer, { justifyContent: 'center', alignItems: 'center' }]}>
-        {loading ? <ActivityIndicator size="large" color="#2563eb" /> : <Text style={styles.emptyText}>Fant ikke gruppedata.</Text>}
+        {loading ? <ActivityIndicator size="large" color="#2fad67" /> : <Text style={styles.emptyText}>Fant ikke gruppedata.</Text>}
       </View>
     );
   }
@@ -295,7 +296,7 @@ export default function GroupDetailsScreen({ route, navigation }) {
                     <Text style={styles.cardTitle}>{friend.username || friend.uid}</Text>
                     <Text style={styles.cardSubtitle}>{friend.email || friend.uid}</Text>
                   </View>
-                  <Text style={{ color: checked ? '#2563eb' : '#9ca3af' }}>{checked ? 'Valgt' : 'Velg'}</Text>
+                  <Text style={{ color: checked ? '#2fad67' : '#9ca3af' }}>{checked ? 'Valgt' : 'Velg'}</Text>
                 </TouchableOpacity>
               );
             })

@@ -3,6 +3,7 @@
 // screens/AuthScreen.js
 import React, { useMemo, useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
@@ -12,7 +13,7 @@ import { ref, set, get } from 'firebase/database';
 
 import LoginForm from '../components/login';
 import SignUpForm from '../components/signup';
-import styles from '../styles /styles';
+import styles from '../styles/styles';
 import { auth, database } from '../database/firebase';
 import { safeLinkGoogleCalendar } from '../services/googleCalendarBackend';
 
@@ -140,7 +141,7 @@ export default function AuthScreen() {
   };
 
   return (
-    <View style={[styles.screenContainer, authStyles.container]}>
+    <SafeAreaView style={[styles.screenContainer, authStyles.container]}>
       <Text style={authStyles.subtitle}>{title}</Text>
 
       {mode === 'login' ? (
@@ -162,7 +163,7 @@ export default function AuthScreen() {
       <Text style={authStyles.helperText}>
         Bruk e-post og passord for å logge inn. Du kan endre dette senere i Firebase.
       </Text>
-    </View>
+    </SafeAreaView>
   );
 }
 

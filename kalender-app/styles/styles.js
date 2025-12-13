@@ -2,14 +2,15 @@
 // slik at komponentene blir mer konsise og enkle å vedlikeholde.
 import { StyleSheet } from 'react-native';
 
-// Fargepalett brukt gjennom appen
-const colors = {
-  bg: '#f7f7fb', // lys bakgrunn
-  card: '#ffffff', // kort/innhold-bakgrunn
-  text: '#1f2937', // primær tekst
-  subtext: '#6b7280', // sekundær tekst
-  primary: '#2563eb', // aksentfarge (ikke mye brukt her ennå)
-  border: '#e5e7eb', // tynne linjer/rammer
+// Fargepalett inspirert av grønn/navy-logoen
+export const colors = {
+  bg: '#f8fbfd', // lys bakgrunn
+  card: '#ffffff',
+  text: '#1f3d59', // navy tekst
+  subtext: '#5f6b76',
+  primary: '#2fad67', // grønn CTA (knapper)
+  accent: '#1f3d59', // navy detaljer
+  border: '#dce6ee',
 };
 
 export default StyleSheet.create({
@@ -23,6 +24,7 @@ export default StyleSheet.create({
   screenContainer: {
     flex: 1,
     padding: 16,
+    paddingTop: 24,
     backgroundColor: colors.bg,
   },
 

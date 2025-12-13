@@ -1,9 +1,10 @@
 // Profil-fanen viser enkel info om innlogget bruker og lar deg logge ut.
 import React, { useEffect, useState } from 'react';
 import { View, Text, Button, ActivityIndicator, Alert, TouchableOpacity } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { onValue, ref } from 'firebase/database';
 import { signOut } from 'firebase/auth';
-import styles from '../styles /styles';
+import styles from '../styles/styles';
 import { auth, database } from '../database/firebase';
 import {
   linkGoogleCalendar,
@@ -51,7 +52,7 @@ export default function ProfileScreen() {
   if (loading) {
     return (
       <View style={[styles.screenContainer, { justifyContent: 'center', alignItems: 'center' }]}>
-        <ActivityIndicator size="large" color="#2563eb" />
+        <ActivityIndicator size="large" color="#2fad67" />
       </View>
     );
   }
@@ -74,7 +75,7 @@ export default function ProfileScreen() {
   const display = current?.displayName || fromProfile || username;
 
   return (
-    <View style={styles.screenContainer}>
+    <SafeAreaView style={[styles.screenContainer, { paddingTop: 12 }]} edges={['top', 'left', 'right']}>
       <Text style={styles.screenTitle}>Profil</Text>
 
       <ProfileRow label="Brukernavn" value={username} />
@@ -83,7 +84,7 @@ export default function ProfileScreen() {
 
       <TouchableOpacity
         style={{
-          backgroundColor: '#2563eb',
+          backgroundColor: '#2fad67',
           paddingVertical: 12,
           borderRadius: 8,
           marginBottom: 16,
@@ -105,7 +106,7 @@ export default function ProfileScreen() {
       </TouchableOpacity>
 
       <Button title="Logg ut" onPress={handleSignOut} />
-    </View>
+    </SafeAreaView>
   );
 }
 

@@ -37,7 +37,7 @@ export default function MainTabs({
       screenOptions={({ route }) => ({
         headerShown: false,
         tabBarStyle: { height: 60, paddingBottom: 6, paddingTop: 6 },
-        tabBarActiveTintColor: '#2563eb',
+        tabBarActiveTintColor: '#2fad67',
         tabBarInactiveTintColor: '#6b7280',
         tabBarIcon: ({ focused, color, size }) => (
           <Ionicons name={routeIcon(route.name, focused)} size={size} color={color} />

@@ -10,8 +10,9 @@ import {
   ActivityIndicator,
   TouchableOpacity,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { ref, onValue, push, update } from 'firebase/database';
-import styles from '../styles /styles';
+import styles from '../styles/styles';
 import { auth, database } from '../database/firebase';
 
 // Brukes for å lage et stabilt brukernavn-fallback
@@ -167,7 +168,7 @@ export default function CreateGroupScreen({ navigation }) {
   }
 
   return (
-    <View style={styles.screenContainer}>
+    <SafeAreaView style={[styles.screenContainer, { paddingTop: 12 }]} edges={['top', 'left', 'right']}>
       <Text style={styles.screenTitle}>Ny gruppe</Text>
 
       <View style={styles.formGroup}>
@@ -197,7 +198,7 @@ export default function CreateGroupScreen({ navigation }) {
                     flexDirection: 'row',
                     justifyContent: 'space-between',
                     alignItems: 'center',
-                    borderColor: checked ? '#2563eb' : '#e5e7eb',
+                    borderColor: checked ? '#2fad67' : '#e5e7eb',
                   },
                 ]}
                 onPress={() => toggleFriend(friend.uid)}
@@ -206,7 +207,7 @@ export default function CreateGroupScreen({ navigation }) {
                   <Text style={styles.cardTitle}>{friend.username || friend.uid}</Text>
                   <Text style={styles.cardSubtitle}>{friend.email || friend.uid}</Text>
                 </View>
-                <Text style={{ color: checked ? '#2563eb' : '#9ca3af', fontWeight: '600' }}>
+                <Text style={{ color: checked ? '#2fad67' : '#9ca3af', fontWeight: '600' }}>
                   {checked ? 'Valgt' : 'Velg'}
                 </Text>
               </TouchableOpacity>
@@ -222,6 +223,6 @@ export default function CreateGroupScreen({ navigation }) {
         onPress={handleCreate}
         disabled={saving || !friends.length}
       />
-    </View>
+    </SafeAreaView>
   );
 }

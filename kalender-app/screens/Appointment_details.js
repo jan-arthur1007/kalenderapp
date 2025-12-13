@@ -1,7 +1,8 @@
 // Detaljskjerm: viser informasjon om én valgt avtale, inkludert gruppevalg.
 import React, { useEffect, useState } from 'react';
 import { View, Text } from 'react-native';
-import styles from '../styles /styles';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import styles from '../styles/styles';
 import { database } from '../database/firebase';
 import { get, ref } from 'firebase/database';
 
@@ -43,7 +44,10 @@ export default function AppointmentDetails({ route }) {
   }
 
   return (
-    <View style={styles.screenContainer}>
+    <SafeAreaView
+      style={[styles.screenContainer, { paddingTop: 12 }]}
+      edges={['top', 'left', 'right']}
+    >
       <Text style={styles.screenTitle}>{appointment.title}</Text>
       <View style={styles.detailRow}>
         <Text style={styles.detailLabel}>Dato:</Text>
@@ -64,6 +68,6 @@ export default function AppointmentDetails({ route }) {
         <Text style={styles.detailLabel}>Beskrivelse:</Text>
         <Text style={styles.detailValue}>{appointment.description || '—'}</Text>
       </View>
-    </View>
+    </SafeAreaView>
   );
 }

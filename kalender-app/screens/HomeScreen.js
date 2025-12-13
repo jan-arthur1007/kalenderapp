@@ -12,8 +12,9 @@ import {
   TextInput,
   StyleSheet,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
-import styles from '../styles /styles';
+import styles from '../styles/styles';
 import { auth } from '../database/firebase';
 import {
   linkGoogleCalendar,
@@ -60,7 +61,7 @@ const localStyles = StyleSheet.create({
     fontWeight: '600',
   },
   save: {
-    color: '#2563eb',
+    color: '#2fad67',
     fontWeight: '700',
   },
 });
@@ -199,6 +200,16 @@ export default function HomeScreen({
       item.participants && item.participants.length
         ? item.participants.join(', ')
         : '—';
+    const formatRange = () => {
+      if (item.startsAt && item.endsAt) {
+        const start = new Date(item.startsAt);
+        const end = new Date(item.endsAt);
+        const dateOpts = { day: '2-digit', month: 'short', year: 'numeric' };
+        const timeOpts = { hour: '2-digit', minute: '2-digit' };
+        return `${start.toLocaleDateString('no-NO', dateOpts)} ${start.toLocaleTimeString([], timeOpts)} – ${end.toLocaleDateString('no-NO', dateOpts)} ${end.toLocaleTimeString([], timeOpts)}`;
+      }
+      return item.date || '';
+    };
 
     return (
       <TouchableOpacity
@@ -208,7 +219,7 @@ export default function HomeScreen({
       >
         <View style={styles.cardHeaderRow}>
           <Text style={styles.cardTitle}>{item.title}</Text>
-          <Text style={styles.cardDate}>{item.date}</Text>
+          <Text style={styles.cardDate}>{formatRange()}</Text>
         </View>
         {/* Viser gruppetilknytning dersom avtalen er delt */}
         {item.groupName ? (
@@ -222,7 +233,7 @@ export default function HomeScreen({
         <View style={{ flexDirection: 'row', marginTop: 8, gap: 12 }}>
           {updateAppointment ? (
             <TouchableOpacity onPress={() => startEdit(item)}>
-              <Text style={{ color: '#2563eb', fontWeight: '600' }}>Rediger</Text>
+              <Text style={{ color: '#2fad67', fontWeight: '600' }}>Rediger</Text>
             </TouchableOpacity>
           ) : null}
           {deleteAppointment ? (
@@ -244,7 +255,7 @@ export default function HomeScreen({
       );
     }
     if (loadingBusy) {
-      return <ActivityIndicator color="#2563eb" style={{ marginTop: 12 }} />;
+      return <ActivityIndicator color="#2fad67" style={{ marginTop: 12 }} />;
     }
     if (busyError) {
       return (
@@ -264,9 +275,9 @@ export default function HomeScreen({
   }, [busyTimes, busyError, loadingBusy]);
 
   return (
-    <View style={styles.screenContainer}>
-      <Text style={styles.screenTitle}>Dine avtaler</Text>
-      <View style={[styles.card, { marginBottom: 16 }]}>
+    <SafeAreaView style={[styles.screenContainer, { paddingTop: 8 }]} edges={['top', 'left', 'right']}>
+      <Text style={[styles.screenTitle, { color: '#0f172a', fontSize: 26, letterSpacing: 0.5 }]}>FREEBUSY</Text>
+      <View style={[styles.card, { marginBottom: 16 }]}> 
         <View style={styles.cardHeaderRow}>
           <Text style={styles.cardTitle}>Kalender (opptatt)</Text>
           {busyWindow ? (
@@ -291,11 +302,12 @@ export default function HomeScreen({
           onPress={loadAvailability}
           disabled={loadingBusy}
         >
-          <Text style={{ color: '#2563eb', fontWeight: '600' }}>
+          <Text style={{ color: styles.cardSubtitle.color, fontWeight: '600' }}>
             {loadingBusy ? 'Oppdaterer...' : 'Oppdater'}
           </Text>
         </TouchableOpacity>
       </View>
+      <Text style={[styles.screenTitle, { marginTop: 4, marginBottom: 8, fontSize: 18 }]}>Dine avtaler</Text>
       <FlatList
         // Selve data-listen
         data={appointments}
@@ -339,6 +351,6 @@ export default function HomeScreen({
           </View>
         </Modal>
       )}
-    </View>
+    </SafeAreaView>
   );
 }

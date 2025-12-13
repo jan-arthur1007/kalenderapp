@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, Button, TouchableOpacity, ActivityIndicator } from 'react-native';
-import styles from '../styles /styles';
+import styles from '../styles/styles';
 
 const fieldStyle = [styles.input, { marginBottom: 12 }];
 
@@ -49,7 +49,7 @@ export default function LoginForm({ onSubmit, goToSignUp, loading = false, error
         <ActivityIndicator style={{ marginTop: 12 }} />
       ) : (
         <TouchableOpacity style={{ marginTop: 16 }} onPress={goToSignUp}>
-          <Text style={{ textAlign: 'center', color: '#2563eb' }}>
+          <Text style={{ textAlign: 'center', color: '#2fad67' }}>
             Har du ikke konto? Registrer deg.
           </Text>
         </TouchableOpacity>

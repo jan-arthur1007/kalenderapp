@@ -8,12 +8,13 @@ import {
   Alert,
   Modal,
   TouchableOpacity,
-  StyleSheet,
   Platform,
   ScrollView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import styles from '../styles /styles';
+import styles from '../styles/styles';
+import { localStyles } from '../styles/makeAppointmentStyles';
 import { fetchGroupFreeBusy } from '../services/freeBusy';
 import { createCalendarEvent } from '../services/calendarEvents';
 import { auth } from '../database/firebase';
@@ -183,7 +184,10 @@ export default function MakeAppointemnt({ navigation, addAppointment, groups = [
   const [durationMinutes, setDurationMinutes] = useState(60);
   const [selectedSlotLabel, setSelectedSlotLabel] = useState('');
   const [useCustomDuration, setUseCustomDuration] = useState(false);
-  const [customDuration, setCustomDuration] = useState('');
+  const [customDays, setCustomDays] = useState(0);
+  const [customHours, setCustomHours] = useState(1);
+  const [customMinutes, setCustomMinutes] = useState(0);
+  const [durationPickerVisible, setDurationPickerVisible] = useState(false);
   const [slotPickerVisible, setSlotPickerVisible] = useState(false);
   const [slotPickerRange, setSlotPickerRange] = useState(null);
   const [slotPickerDate, setSlotPickerDate] = useState(new Date());
@@ -208,10 +212,9 @@ export default function MakeAppointemnt({ navigation, addAppointment, groups = [
 
   const effectiveDuration = () => {
     if (useCustomDuration) {
-      const minutes = Number(customDuration);
-      if (Number.isFinite(minutes) && minutes > 0) {
-        return minutes;
-      }
+      const minutes =
+        customDays * 24 * 60 + customHours * 60 + customMinutes;
+      if (Number.isFinite(minutes) && minutes > 0) return minutes;
     }
     return durationMinutes;
   };
@@ -348,7 +351,8 @@ export default function MakeAppointemnt({ navigation, addAppointment, groups = [
   };
 
   return (
-    <ScrollView
+    <SafeAreaView style={[styles.screenContainer, { paddingTop: 12 }]} edges={['top', 'left', 'right']}>
+      <ScrollView
       style={{ flex: 1 }}
       keyboardShouldPersistTaps="handled"
       keyboardDismissMode="on-drag"
@@ -356,6 +360,100 @@ export default function MakeAppointemnt({ navigation, addAppointment, groups = [
       contentInsetAdjustmentBehavior="never"
       contentContainerStyle={localStyles.scrollContent}
     >
+      {/* Modal for egendefinert varighet */}
+      {durationPickerVisible && (
+        <Modal transparent animationType="fade" visible={durationPickerVisible}>
+          <View style={localStyles.modalBackdrop}>
+            <View style={[localStyles.modalCard, { paddingBottom: 24 }]}>
+              <View style={localStyles.modalHeader}>
+                <Text style={localStyles.modalTitle}>Egendefinert varighet</Text>
+                <Button title="Lukk" onPress={() => setDurationPickerVisible(false)} />
+              </View>
+              <Text style={{ color: '#6b7280', marginHorizontal: 20, marginBottom: 12 }}>
+                Velg dager, timer og minutter.
+              </Text>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-evenly' }}>
+                <View style={localStyles.wheelColumn}>
+                  <Text style={localStyles.wheelLabel}>Dager</Text>
+                  <ScrollView style={localStyles.wheelList}>
+                    {Array.from({ length: 8 }).map((_, idx) => (
+                      <TouchableOpacity
+                        key={`day-${idx}`}
+                        style={[
+                          localStyles.wheelItem,
+                          customDays === idx && localStyles.wheelItemActive,
+                        ]}
+                        onPress={() => setCustomDays(idx)}
+                      >
+                        <Text
+                          style={[
+                            localStyles.wheelText,
+                            customDays === idx && localStyles.wheelTextActive,
+                          ]}
+                        >
+                          {idx}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+                <View style={localStyles.wheelColumn}>
+                  <Text style={localStyles.wheelLabel}>Timer</Text>
+                  <ScrollView style={localStyles.wheelList}>
+                    {Array.from({ length: 24 }).map((_, idx) => (
+                      <TouchableOpacity
+                        key={`hour-${idx}`}
+                        style={[
+                          localStyles.wheelItem,
+                          customHours === idx && localStyles.wheelItemActive,
+                        ]}
+                        onPress={() => setCustomHours(idx)}
+                      >
+                        <Text
+                          style={[
+                            localStyles.wheelText,
+                            customHours === idx && localStyles.wheelTextActive,
+                          ]}
+                        >
+                          {idx}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+                <View style={localStyles.wheelColumn}>
+                  <Text style={localStyles.wheelLabel}>Min</Text>
+                  <ScrollView style={localStyles.wheelList}>
+                    {[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55].map((val) => (
+                      <TouchableOpacity
+                        key={`min-${val}`}
+                        style={[
+                          localStyles.wheelItem,
+                          customMinutes === val && localStyles.wheelItemActive,
+                        ]}
+                        onPress={() => setCustomMinutes(val)}
+                      >
+                        <Text
+                          style={[
+                            localStyles.wheelText,
+                            customMinutes === val && localStyles.wheelTextActive,
+                          ]}
+                        >
+                          {val}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+              </View>
+              <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 12, marginHorizontal: 20 }}>
+                <Button title="Bruk" onPress={() => setDurationPickerVisible(false)} />
+              </View>
+            </View>
+          </View>
+        </Modal>
+      )}
+
       {slotPickerVisible && slotPickerRange && (
         <Modal transparent animationType="slide" visible={slotPickerVisible}>
           <View style={localStyles.modalBackdrop}>
@@ -470,6 +568,7 @@ export default function MakeAppointemnt({ navigation, addAppointment, groups = [
               onPress={() => {
                 setUseCustomDuration(false);
                 setDurationMinutes(minutes);
+                setDurationPickerVisible(false);
               }}
             >
               <Text
@@ -487,7 +586,10 @@ export default function MakeAppointemnt({ navigation, addAppointment, groups = [
               localStyles.durationChip,
               useCustomDuration && localStyles.durationChipActive,
             ]}
-            onPress={() => setUseCustomDuration(true)}
+            onPress={() => {
+              setUseCustomDuration(true);
+              setDurationPickerVisible(true);
+            }}
           >
             <Text
               style={[
@@ -499,15 +601,6 @@ export default function MakeAppointemnt({ navigation, addAppointment, groups = [
             </Text>
           </TouchableOpacity>
         </View>
-        {useCustomDuration && (
-          <TextInput
-            placeholder="Minutter (f.eks. 75)"
-            keyboardType="numeric"
-            value={customDuration}
-            onChangeText={setCustomDuration}
-            style={[styles.input, { marginTop: 8 }]}
-          />
-        )}
       </View>
 
       {/* Valgfri gruppetilknytning */}
@@ -581,7 +674,7 @@ export default function MakeAppointemnt({ navigation, addAppointment, groups = [
             </Text>
           ) : null}
           {selectedSlotLabel ? (
-            <Text style={[styles.emptyText, { color: '#2563eb', marginTop: 4 }]}>
+            <Text style={[styles.emptyText, { color: '#2fad67', marginTop: 4 }]}>
               Valgt tidspunkt: {selectedSlotLabel}
             </Text>
           ) : null}
@@ -618,105 +711,6 @@ export default function MakeAppointemnt({ navigation, addAppointment, groups = [
 
       <Button title={saving ? 'Lagrer…' : 'Lagre avtale'} onPress={onSave} disabled={saving} />
     </ScrollView>
+    </SafeAreaView>
   );
 }
-
-const localStyles = StyleSheet.create({
-  selectInput: {
-    minHeight: 48,
-    justifyContent: 'center',
-  },
-  selectValue: {
-    fontSize: 15,
-    color: '#1f2937',
-  },
-  selectPlaceholder: {
-    fontSize: 15,
-    color: '#9ca3af',
-  },
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.35)',
-    justifyContent: 'flex-end',
-  },
-  modalCard: {
-    backgroundColor: '#ffffff',
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    overflow: 'hidden',
-    paddingBottom: 20,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
-  },
-  modalTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1f2937',
-  },
-  iosPicker: {
-    backgroundColor: '#ffffff',
-  },
-  optionRow: {
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
-  },
-  optionLabel: {
-    fontSize: 15,
-    color: '#1f2937',
-  },
-  durationChip: {
-    borderWidth: 1,
-    borderColor: '#94a3b8',
-    borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-  },
-  durationChipActive: {
-    backgroundColor: '#2563eb',
-    borderColor: '#2563eb',
-  },
-  durationChipLabel: {
-    color: '#1f2937',
-    fontSize: 14,
-  },
-  durationChipLabelActive: {
-    color: '#fff',
-    fontWeight: '600',
-  },
-  suggestionRow: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
-    borderRadius: 8,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  suggestionLabel: {
-    fontSize: 14,
-    color: '#111827',
-    flex: 1,
-    marginRight: 8,
-  },
-  suggestionAction: {
-    color: '#2563eb',
-    fontWeight: '600',
-  },
-  scrollContent: {
-    padding: 16,
-    paddingBottom: 160,
-    backgroundColor: '#f7f7fb',
-  },
-});

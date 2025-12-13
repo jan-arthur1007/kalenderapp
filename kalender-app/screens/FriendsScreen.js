@@ -10,8 +10,9 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { onValue, ref, get, update, remove } from 'firebase/database';
-import styles from '../styles /styles';
+import styles from '../styles/styles';
 import { auth, database } from '../database/firebase';
 
 // Normaliserer input slik at vi kan gjøre case-insensitive søk
@@ -130,6 +131,7 @@ export default function FriendsScreen({ navigation }) {
   const [searching, setSearching] = useState(false);
 
   const [feedback, setFeedback] = useState('');
+  const [viewMode, setViewMode] = useState('friends');
 
   // Leser alle profiler for å vise forslag i søkefeltet
   useEffect(() => {
@@ -291,12 +293,12 @@ export default function FriendsScreen({ navigation }) {
     }
   };
 
-  const renderFriend = ({ item }) => (
-    <View style={styles.card}>
-      <Text style={styles.cardTitle}>{item.username || 'Ukjent bruker'}</Text>
-      <Text style={styles.cardSubtitle}>{item.email || item.uid}</Text>
-    </View>
-  );
+const renderFriend = ({ item }) => (
+  <View style={styles.card}>
+    <Text style={styles.cardTitle}>{item.username || 'Ukjent bruker'}</Text>
+    <Text style={styles.cardSubtitle}>{item.email || item.uid}</Text>
+  </View>
+);
 
   // Gir brukerlesbare meldinger for søkeresultatet
   const getResultMessage = () => {
@@ -324,142 +326,160 @@ export default function FriendsScreen({ navigation }) {
   }
 
   return (
-    <View style={styles.screenContainer}>
-      <View
-        style={{
-          flexDirection: 'row',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: 12,
-        }}
-      >
-        <Text style={styles.screenTitle}>Venner</Text>
-        <Button
-          title="Ny gruppe"
-          onPress={() => {
-            const parent = navigation.getParent?.();
-            if (parent) {
-              parent.navigate('CreateGroup');
-            } else {
-              navigation.navigate('CreateGroup');
-            }
-          }}
-        />
-      </View>
-
-      <View style={styles.formGroup}>
-        <Text style={styles.label}>Søk etter brukernavn</Text>
-        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <TextInput
-            placeholder="Søk ..."
-            value={searchValue}
-            onChangeText={setSearchValue}
-            autoCapitalize="none"
-            style={[styles.input, { flex: 1, marginRight: 12 }]}
-          />
-          <Button title="Søk" onPress={handleSearch} disabled={searching} />
-        </View>
-        {searching ? <ActivityIndicator style={{ marginTop: 8 }} /> : null}
-        {getResultMessage() ? (
-          <Text style={{ marginTop: 8, color: '#6b7280' }}>{getResultMessage()}</Text>
-        ) : null}
-        {searchResult?.type === 'result' ? (
-          <View style={[styles.card, { marginTop: 12 }]}> 
-            <Text style={styles.cardTitle}>{searchResult.profile.username}</Text>
-            <Text style={styles.cardSubtitle}>{searchResult.profile.email || 'Ingen e-post'}</Text>
-            <Button title="Send venneforespørsel" onPress={handleSendRequest} />
-          </View>
-        ) : null}
-        {suggestions.length ? (
-          <View style={{ marginTop: 12 }}>
-            <Text style={styles.label}>Forslag</Text>
-            {/* Viser de beste matchene mens man skriver */}
-            {suggestions.map((user) => (
-              <Button
-                key={user.uid}
-                title={`${user.username} (${user.email || 'uten e-post'})`}
-                onPress={() => {
-                  setSearchValue(user.username);
-                  setSearchResult({ type: 'result', uid: user.uid, profile: user });
-                  setFeedback('');
-                }}
-              />
-            ))}
-          </View>
-        ) : null}
-        {feedback ? (
-          <Text style={{ marginTop: 8, color: '#2563eb' }}>{feedback}</Text>
-        ) : null}
-      </View>
-
-      <View style={{ flex: 1 }}>
-        {loading ? (
-          <ActivityIndicator />
-        ) : friends.length ? (
-          // Viser vennene fra RTDB
-          <FlatList data={friends} keyExtractor={(item) => item.uid} renderItem={renderFriend} />
-        ) : (
-          <Text style={styles.emptyText}>Ingen venner ennå. Legg til en venn for å starte.</Text>
-        )}
-      </View>
-
-      {/* Mottatte venneforespørsler */}
-      <View style={{ marginTop: 24 }}>
-        <Text style={styles.screenTitle}>Venneforespørsler</Text>
-        {incoming.length ? (
-          <FlatList
-            data={incoming}
-            keyExtractor={(item) => item.fromUid}
-            renderItem={({ item }) => (
-              <View style={styles.card}>
-                <Text style={styles.cardTitle}>{item.fromName || item.fromUid}</Text>
-                <Text style={styles.cardSubtitle}>{item.fromEmail || ''}</Text>
-                <View style={{ flexDirection: 'row', gap: 12, marginTop: 8 }}>
-                  <Button title="Godta" onPress={() => acceptRequest(item)} />
-                  <Button title="Avslå" color="#dc2626" onPress={() => declineRequest(item)} />
-                </View>
-              </View>
-            )}
-          />
-        ) : (
-          <Text style={styles.emptyText}>Ingen nye forespørsler.</Text>
-        )}
-      </View>
-
-      {/* Viser gruppene bruker er med i, med snarvei til detaljer */}
-      <View style={{ marginTop: 24 }}>
-        <Text style={styles.screenTitle}>Dine grupper</Text>
-        {groups.length ? (
-          <FlatList
-            data={groups}
-            keyExtractor={(item) => item.id}
-            renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={styles.card}
-                  onPress={() => {
-                    const parent = navigation.getParent?.();
-                    if (parent) {
-                    parent.navigate('GroupDetails', { groupId: item.id });
-                  } else {
-                    navigation.navigate('GroupDetails', { groupId: item.id });
-                  }
+    <SafeAreaView
+      style={[styles.screenContainer, { paddingTop: 12 }]}
+      edges={['top', 'left', 'right']}
+    >
+      <Text style={styles.screenTitle}>Venner</Text>
+      <View style={{ flexDirection: 'row', gap: 16, marginBottom: 16 }}>
+        {['friends', 'groups', 'requests'].map((mode) => {
+          const label = mode === 'friends' ? 'Venner' : mode === 'groups' ? 'Grupper' : 'Venneforespørsler';
+          const active = viewMode === mode;
+          return (
+            <TouchableOpacity key={mode} onPress={() => setViewMode(mode)}>
+              <Text
+                style={{
+                  color: active ? '#0f172a' : '#6b7280',
+                  fontWeight: active ? '700' : '500',
+                  borderBottomWidth: active ? 2 : 0,
+                  borderBottomColor: active ? '#0f172a' : 'transparent',
+                  paddingBottom: 4,
                 }}
               >
-                <Text style={styles.cardTitle}>{item.name}</Text>
-                <Text style={styles.cardSubtitle}>
-                  {item.memberCount || '-'} medlemmer • Eier: {
-                    item.ownerUid === uid
-                      ? 'deg'
-                      : item.ownerName || userIndex[item.ownerUid]?.username || item.ownerUid
-                  }
-                </Text>
-              </TouchableOpacity>
-            )}
-          />
-        ) : (
-          <Text style={styles.emptyText}>Ingen grupper enda.</Text>
-        )}
+                {label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
       </View>
-    </View>
+
+      {viewMode === 'friends' && (
+        <>
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>Søk etter brukernavn</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <TextInput
+                placeholder="Søk ..."
+                value={searchValue}
+                onChangeText={setSearchValue}
+                autoCapitalize="none"
+                style={[styles.input, { flex: 1, marginRight: 12 }]}
+              />
+              <Button title="Søk" onPress={handleSearch} disabled={searching} />
+            </View>
+            {searching ? <ActivityIndicator style={{ marginTop: 8 }} /> : null}
+            {getResultMessage() ? (
+              <Text style={{ marginTop: 8, color: '#6b7280' }}>{getResultMessage()}</Text>
+            ) : null}
+            {searchResult?.type === 'result' ? (
+              <View style={[styles.card, { marginTop: 12 }]}> 
+                <Text style={styles.cardTitle}>{searchResult.profile.username}</Text>
+                <Text style={styles.cardSubtitle}>{searchResult.profile.email || 'Ingen e-post'}</Text>
+                <Button title="Send venneforespørsel" onPress={handleSendRequest} />
+              </View>
+            ) : null}
+            {suggestions.length ? (
+              <View style={{ marginTop: 12 }}>
+                <Text style={styles.label}>Forslag</Text>
+                {suggestions.map((user) => (
+                  <Button
+                    key={user.uid}
+                    title={`${user.username} (${user.email || 'uten e-post'})`}
+                    onPress={() => {
+                      setSearchValue(user.username);
+                      setSearchResult({ type: 'result', uid: user.uid, profile: user });
+                      setFeedback('');
+                    }}
+                  />
+                ))}
+              </View>
+            ) : null}
+            {feedback ? (
+              <Text style={{ marginTop: 8, color: '#2fad67' }}>{feedback}</Text>
+            ) : null}
+          </View>
+
+          <View style={{ flex: 1 }}>
+            {loading ? (
+              <ActivityIndicator />
+            ) : friends.length ? (
+              <FlatList data={friends} keyExtractor={(item) => item.uid} renderItem={renderFriend} />
+            ) : (
+              <Text style={styles.emptyText}>Ingen venner ennå. Legg til en venn for å starte.</Text>
+            )}
+          </View>
+        </>
+      )}
+
+      {viewMode === 'requests' && (
+        <View style={{ flex: 1, marginTop: 12 }}>
+          {incoming.length ? (
+            <FlatList
+              data={incoming}
+              keyExtractor={(item) => item.fromUid}
+              renderItem={({ item }) => (
+                <View style={styles.card}>
+                  <Text style={styles.cardTitle}>{item.fromName || item.fromUid}</Text>
+                  <Text style={styles.cardSubtitle}>{item.fromEmail || ''}</Text>
+                  <View style={{ flexDirection: 'row', gap: 12, marginTop: 8 }}>
+                    <Button title="Godta" onPress={() => acceptRequest(item)} />
+                    <Button title="Avslå" color="#dc2626" onPress={() => declineRequest(item)} />
+                  </View>
+                </View>
+              )}
+            />
+          ) : (
+            <Text style={styles.emptyText}>Ingen nye forespørsler.</Text>
+          )}
+        </View>
+      )}
+
+      {viewMode === 'groups' && (
+        <View style={{ flex: 1, marginTop: 12 }}>
+          <Button
+            title="Ny gruppe"
+            onPress={() => {
+              const parent = navigation.getParent?.();
+              if (parent) {
+                parent.navigate('CreateGroup');
+              } else {
+                navigation.navigate('CreateGroup');
+              }
+            }}
+          />
+          {groups.length ? (
+            <FlatList
+              style={{ marginTop: 12 }}
+              data={groups}
+              keyExtractor={(item) => item.id}
+              renderItem={({ item }) => (
+                  <TouchableOpacity
+                    style={styles.card}
+                    onPress={() => {
+                      const parent = navigation.getParent?.();
+                      if (parent) {
+                      parent.navigate('GroupDetails', { groupId: item.id });
+                    } else {
+                      navigation.navigate('GroupDetails', { groupId: item.id });
+                    }
+                  }}
+                >
+                  <Text style={styles.cardTitle}>{item.name}</Text>
+                  <Text style={styles.cardSubtitle}>
+                    {item.memberCount || '-'} medlemmer • Eier: {
+                      item.ownerUid === uid
+                        ? 'deg'
+                        : item.ownerName || userIndex[item.ownerUid]?.username || item.ownerUid
+                    }
+                  </Text>
+                </TouchableOpacity>
+              )}
+            />
+          ) : (
+            <Text style={styles.emptyText}>Ingen grupper enda.</Text>
+          )}
+        </View>
+      )}
+    </SafeAreaView>
   );
 }
