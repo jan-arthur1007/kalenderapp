@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { onValue, ref } from 'firebase/database';
 import { signOut } from 'firebase/auth';
 import styles from '../styles/styles';
+import profileStyles from '../styles/profileScreenStyles';
 import { auth, database } from '../database/firebase';
 import {
   linkGoogleCalendar,
@@ -51,8 +52,8 @@ export default function ProfileScreen() {
 
   if (loading) {
     return (
-      <View style={[styles.screenContainer, { justifyContent: 'center', alignItems: 'center' }]}>
-        <ActivityIndicator size="large" color="#2fad67" />
+      <View style={[styles.screenContainer, profileStyles.loadingContainer]}>
+        <ActivityIndicator size="large" color={profileStyles.loadingColor.color} />
       </View>
     );
   }
@@ -75,7 +76,7 @@ export default function ProfileScreen() {
   const display = current?.displayName || fromProfile || username;
 
   return (
-    <SafeAreaView style={[styles.screenContainer, { paddingTop: 12 }]} edges={['top', 'left', 'right']}>
+    <SafeAreaView style={[styles.screenContainer, profileStyles.safeArea]} edges={['top', 'left', 'right']}>
       <Text style={styles.screenTitle}>Profil</Text>
 
       <ProfileRow label="Brukernavn" value={username} />
@@ -83,12 +84,7 @@ export default function ProfileScreen() {
       <ProfileRow label="Visningsnavn" value={display} />
 
       <TouchableOpacity
-        style={{
-          backgroundColor: '#2fad67',
-          paddingVertical: 12,
-          borderRadius: 8,
-          marginBottom: 16,
-        }}
+        style={profileStyles.googleButton}
         onPress={() => {
           if (!hasGoogleClientId()) {
             promptMissingClientId();
@@ -100,7 +96,7 @@ export default function ProfileScreen() {
           });
         }}
       >
-        <Text style={{ color: '#fff', textAlign: 'center', fontWeight: '600' }}>
+        <Text style={profileStyles.googleButtonText}>
           Koble til Google-kalender
         </Text>
       </TouchableOpacity>
@@ -127,17 +123,8 @@ function ProfileRow({ label, value }) {
   return (
     <View style={styles.formGroup}>
       <Text style={styles.label}>{label}</Text>
-      <View
-        style={{
-          borderWidth: 1,
-          borderColor: '#e5e7eb',
-          borderRadius: 10,
-          paddingHorizontal: 12,
-          paddingVertical: 10,
-          backgroundColor: '#fff',
-        }}
-      >
-        <Text style={{ color: '#1f2937' }}>{value || '—'}</Text>
+      <View style={profileStyles.profileValueBox}>
+        <Text style={profileStyles.profileValueText}>{value || '—'}</Text>
       </View>
     </View>
   );

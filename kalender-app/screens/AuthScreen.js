@@ -1,8 +1,6 @@
-
-
 // screens/AuthScreen.js
 import React, { useMemo, useState } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   createUserWithEmailAndPassword,
@@ -14,6 +12,7 @@ import { ref, set, get } from 'firebase/database';
 import LoginForm from '../components/login';
 import SignUpForm from '../components/signup';
 import styles from '../styles/styles';
+import authScreenStyles from '../styles/authScreenStyles';
 import { auth, database } from '../database/firebase';
 import { safeLinkGoogleCalendar } from '../services/googleCalendarBackend';
 
@@ -53,7 +52,6 @@ export default function AuthScreen() {
     setMode(nextMode);
   };
 
-  // 🔹 LOGIN – etter vellykket innlogging spør vi om Google-kobling
   const handleLogin = async ({ email, password }) => {
     try {
       setLoading(true);
@@ -63,10 +61,8 @@ export default function AuthScreen() {
       const current = cred.user;
 
       if (current) {
-        // Sjekk om vi allerede har tokens
         const tokenSnap = await get(ref(database, `calendarTokens/${current.uid}`));
         if (!tokenSnap.exists()) {
-          // Ingen tokens -> tilby kobling
           await safeLinkGoogleCalendar(current);
         }
       }
@@ -78,7 +74,6 @@ export default function AuthScreen() {
     }
   };
 
-  // 🔹 SIGNUP – samme som før, men spør også om Google-kobling til slutt
   const handleSignUp = async ({ email, username, password, confirmPassword }) => {
     if (password !== confirmPassword) {
       setError('Passordene må være like.');
@@ -130,7 +125,6 @@ export default function AuthScreen() {
         set(ref(database, `usernameIndex/${finalUsername}`), current.uid),
       ]);
 
-      // Etter vellykket registrering: koble Google-kalender
       await safeLinkGoogleCalendar(current);
     } catch (err) {
       console.error('Sign up failed', err);
@@ -141,8 +135,8 @@ export default function AuthScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.screenContainer, authStyles.container]}>
-      <Text style={authStyles.subtitle}>{title}</Text>
+    <SafeAreaView style={[styles.screenContainer, authScreenStyles.container]} edges={['top', 'left', 'right']}>
+      <Text style={authScreenStyles.subtitle}>{title}</Text>
 
       {mode === 'login' ? (
         <LoginForm
@@ -160,27 +154,9 @@ export default function AuthScreen() {
         />
       )}
 
-      <Text style={authStyles.helperText}>
+      <Text style={authScreenStyles.helperText}>
         Bruk e-post og passord for å logge inn. Du kan endre dette senere i Firebase.
       </Text>
     </SafeAreaView>
   );
 }
-
-const authStyles = StyleSheet.create({
-  container: {
-    justifyContent: 'center',
-  },
-  subtitle: {
-    fontSize: 18,
-    textAlign: 'center',
-    color: '#4b5563',
-    marginBottom: 24,
-  },
-  helperText: {
-    marginTop: 36,
-    textAlign: 'center',
-    color: '#9ca3af',
-    fontSize: 12,
-  },
-});

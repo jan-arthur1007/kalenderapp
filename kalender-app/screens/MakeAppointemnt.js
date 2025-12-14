@@ -15,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import styles, { colors } from '../styles/styles';
 import { localStyles } from '../styles/makeAppointmentStyles';
+import makeAppointmentScreenStyles from '../styles/makeAppointmentScreenStyles';
 import { fetchGroupFreeBusy } from '../services/freeBusy';
 import { createCalendarEvent } from '../services/calendarEvents';
 import { ref, update } from 'firebase/database';
@@ -362,9 +363,9 @@ export default function MakeAppointemnt({ navigation, addAppointment, groups = [
   };
 
   return (
-    <SafeAreaView style={[styles.screenContainer, { paddingTop: 12 }]} edges={['top', 'left', 'right']}>
+    <SafeAreaView style={[styles.screenContainer, makeAppointmentScreenStyles.safeArea]} edges={['top', 'left', 'right']}>
       <ScrollView
-      style={{ flex: 1 }}
+      style={makeAppointmentScreenStyles.scroll}
       keyboardShouldPersistTaps="handled"
       keyboardDismissMode="on-drag"
       scrollsToTop={false}
@@ -375,15 +376,15 @@ export default function MakeAppointemnt({ navigation, addAppointment, groups = [
       {durationPickerVisible && (
         <Modal transparent animationType="fade" visible={durationPickerVisible}>
           <View style={localStyles.modalBackdrop}>
-            <View style={[localStyles.modalCard, { paddingBottom: 24 }]}>
+            <View style={[localStyles.modalCard, makeAppointmentScreenStyles.modalCardExtra]}>
               <View style={localStyles.modalHeader}>
                 <Text style={localStyles.modalTitle}>Egendefinert varighet</Text>
                 <Button title="Lukk" onPress={() => setDurationPickerVisible(false)} />
               </View>
-              <Text style={{ color: '#6b7280', marginHorizontal: 20, marginBottom: 12 }}>
+              <Text style={makeAppointmentScreenStyles.durationHint}>
                 Velg dager, timer og minutter.
               </Text>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-evenly' }}>
+              <View style={makeAppointmentScreenStyles.wheelRow}>
                 <View style={localStyles.wheelColumn}>
                   <Text style={localStyles.wheelLabel}>Dager</Text>
                   <ScrollView style={localStyles.wheelList}>
@@ -457,7 +458,7 @@ export default function MakeAppointemnt({ navigation, addAppointment, groups = [
                   </ScrollView>
                 </View>
               </View>
-              <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 12, marginHorizontal: 20 }}>
+              <View style={makeAppointmentScreenStyles.wheelActionRow}>
                 <Button title="Bruk" onPress={() => setDurationPickerVisible(false)} />
               </View>
             </View>
@@ -503,7 +504,7 @@ export default function MakeAppointemnt({ navigation, addAppointment, groups = [
                 }}
               />
               {Platform.OS === 'ios' && (
-                <View style={{ paddingHorizontal: 20, paddingVertical: 12 }}>
+                <View style={makeAppointmentScreenStyles.slotPickerContainer}>
                   <Button
                     title="Bruk"
                     onPress={() => {
@@ -568,7 +569,7 @@ export default function MakeAppointemnt({ navigation, addAppointment, groups = [
 
       <View style={styles.formGroup}>
         <Text style={styles.label}>Varighet</Text>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+        <View style={makeAppointmentScreenStyles.durationChipsRow}>
           {[30, 60, 90, 120].map((minutes) => (
             <TouchableOpacity
               key={minutes}
@@ -671,13 +672,13 @@ export default function MakeAppointemnt({ navigation, addAppointment, groups = [
       </View>
       {selectedGroupId ? (
         <View style={styles.formGroup}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+          <View style={makeAppointmentScreenStyles.headerRow}>
             <Text style={styles.label}>Felles ledige tider</Text>
             <TouchableOpacity
               style={[
                 styles.primaryButton,
-                { marginTop: 0, paddingHorizontal: 14, paddingVertical: 10 },
-                loadingSuggestions && { opacity: 0.6 },
+                makeAppointmentScreenStyles.compactPrimaryButton,
+                loadingSuggestions && makeAppointmentScreenStyles.disabledButton,
               ]}
               onPress={handleSuggestionFetch}
               disabled={loadingSuggestions}
@@ -688,17 +689,17 @@ export default function MakeAppointemnt({ navigation, addAppointment, groups = [
             </TouchableOpacity>
           </View>
           {missingMembers.length ? (
-            <Text style={[styles.emptyText, { color: '#92400e', marginTop: 4 }]}>
+            <Text style={[styles.emptyText, makeAppointmentScreenStyles.missingMembersText]}>
               Mangler kalender for: {missingMembers.join(', ')}
             </Text>
           ) : null}
           {selectedSlotLabel ? (
-            <Text style={[styles.emptyText, { color: colors.accent, fontWeight: '700', marginTop: 4 }]}>
+            <Text style={[styles.emptyText, makeAppointmentScreenStyles.selectedSlotText]}>
               Valgt tidspunkt: {selectedSlotLabel}
             </Text>
           ) : null}
           {suggestionsError ? (
-            <Text style={[styles.emptyText, { color: '#dc2626', marginTop: 4 }]}>
+            <Text style={[styles.emptyText, makeAppointmentScreenStyles.suggestionErrorText]}>
               {suggestionsError}
             </Text>
           ) : null}
@@ -723,13 +724,13 @@ export default function MakeAppointemnt({ navigation, addAppointment, groups = [
           placeholder="Kort beskrivelse"
           value={description}
           onChangeText={setDescription}
-          style={[styles.input, { height: 90 }]}
+          style={[styles.input, makeAppointmentScreenStyles.descriptionInput]}
           multiline
         />
       </View>
 
       <TouchableOpacity
-        style={[styles.primaryButton, saving && { opacity: 0.6 }]}
+        style={[styles.primaryButton, saving && makeAppointmentScreenStyles.disabledButton]}
         onPress={onSave}
         disabled={saving}
       >

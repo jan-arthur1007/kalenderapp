@@ -1,8 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { View, Text, TextInput, Button, TouchableOpacity, ActivityIndicator } from 'react-native';
 import styles from '../styles/styles';
-
-const fieldStyle = [styles.input, { marginBottom: 12 }];
+import signupStyles from '../styles/signupStyles';
 
 export default function SignUpForm({ onSubmit, goToLogin, loading = false, error = '' }) {
   const [email, setEmail] = useState('');
@@ -26,7 +25,7 @@ export default function SignUpForm({ onSubmit, goToLogin, loading = false, error
     loading || !email.trim() || !username.trim() || password.length < 6 || passwordMismatch;
 
   return (
-    <View style={{ width: '100%' }}>
+    <View style={signupStyles.container}>
       <Text style={styles.screenTitle}>Opprett konto</Text>
 
       <TextInput
@@ -36,7 +35,7 @@ export default function SignUpForm({ onSubmit, goToLogin, loading = false, error
         placeholder="E-post"
         value={email}
         onChangeText={setEmail}
-        style={fieldStyle}
+        style={[styles.input, signupStyles.field]}
       />
 
       <TextInput
@@ -45,7 +44,7 @@ export default function SignUpForm({ onSubmit, goToLogin, loading = false, error
         placeholder="Brukernavn"
         value={username}
         onChangeText={setUsername}
-        style={fieldStyle}
+        style={[styles.input, signupStyles.field]}
       />
 
       <TextInput
@@ -53,7 +52,7 @@ export default function SignUpForm({ onSubmit, goToLogin, loading = false, error
         placeholder="Passord (minst 6 tegn)"
         value={password}
         onChangeText={setPassword}
-        style={fieldStyle}
+        style={[styles.input, signupStyles.field]}
       />
 
       <TextInput
@@ -61,14 +60,14 @@ export default function SignUpForm({ onSubmit, goToLogin, loading = false, error
         placeholder="Bekreft passord"
         value={confirmPassword}
         onChangeText={setConfirmPassword}
-        style={fieldStyle}
+        style={[styles.input, signupStyles.field]}
       />
 
       {passwordMismatch ? (
-        <Text style={{ color: '#dc2626', marginBottom: 12 }}>Passordene må være like.</Text>
+        <Text style={signupStyles.error}>Passordene må være like.</Text>
       ) : null}
 
-      {error ? <Text style={{ color: '#dc2626', marginBottom: 12 }}>{error}</Text> : null}
+      {error ? <Text style={signupStyles.error}>{error}</Text> : null}
 
       <Button
         title={loading ? 'Oppretter…' : 'Registrer deg'}
@@ -77,12 +76,10 @@ export default function SignUpForm({ onSubmit, goToLogin, loading = false, error
       />
 
       {loading ? (
-        <ActivityIndicator style={{ marginTop: 12 }} />
+        <ActivityIndicator style={signupStyles.loading} />
       ) : (
-        <TouchableOpacity style={{ marginTop: 16 }} onPress={goToLogin}>
-          <Text style={{ textAlign: 'center', color: '#2fad67' }}>
-            Har du allerede konto? Logg inn.
-          </Text>
+        <TouchableOpacity style={signupStyles.switchLink} onPress={goToLogin}>
+          <Text style={signupStyles.switchText}>Har du allerede konto? Logg inn.</Text>
         </TouchableOpacity>
       )}
     </View>

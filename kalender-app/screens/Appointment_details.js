@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import styles from '../styles/styles';
+import appointmentStyles from '../styles/appointmentDetailsStyles';
 import { database } from '../database/firebase';
 import { get, ref } from 'firebase/database';
 
@@ -45,7 +46,7 @@ export default function AppointmentDetails({ route }) {
 
   return (
     <SafeAreaView
-      style={[styles.screenContainer, { paddingTop: 12 }]}
+      style={[styles.screenContainer, appointmentStyles.safeArea]}
       edges={['top', 'left', 'right']}
     >
       <Text style={styles.screenTitle}>{appointment.title}</Text>
@@ -64,7 +65,7 @@ export default function AppointmentDetails({ route }) {
         <Text style={styles.detailLabel}>Deltakere:</Text>
         <Text style={styles.detailValue}>{(resolvedParticipants || []).join(', ') || '—'}</Text>
       </View>
-      <View style={[styles.detailRow, { alignItems: 'flex-start' }]}>
+      <View style={[styles.detailRow, appointmentStyles.descriptionRow]}>
         <Text style={styles.detailLabel}>Beskrivelse:</Text>
         <Text style={styles.detailValue}>{appointment.description || '—'}</Text>
       </View>

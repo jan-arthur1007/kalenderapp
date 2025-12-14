@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, Button, TouchableOpacity, ActivityIndicator } from 'react-native';
 import styles from '../styles/styles';
-
-const fieldStyle = [styles.input, { marginBottom: 12 }];
+import loginStyles from '../styles/loginStyles';
 
 export default function LoginForm({ onSubmit, goToSignUp, loading = false, error = '' }) {
   const [email, setEmail] = useState('');
@@ -16,7 +15,7 @@ export default function LoginForm({ onSubmit, goToSignUp, loading = false, error
   };
 
   return (
-    <View style={{ width: '100%' }}>
+    <View style={loginStyles.container}>
       <Text style={styles.screenTitle}>Logg inn</Text>
 
       <TextInput
@@ -26,7 +25,7 @@ export default function LoginForm({ onSubmit, goToSignUp, loading = false, error
         placeholder="E-post"
         value={email}
         onChangeText={setEmail}
-        style={fieldStyle}
+        style={[styles.input, loginStyles.field]}
       />
 
       <TextInput
@@ -34,10 +33,10 @@ export default function LoginForm({ onSubmit, goToSignUp, loading = false, error
         placeholder="Passord"
         value={password}
         onChangeText={setPassword}
-        style={fieldStyle}
+        style={[styles.input, loginStyles.field]}
       />
 
-      {error ? <Text style={{ color: '#dc2626', marginBottom: 12 }}>{error}</Text> : null}
+      {error ? <Text style={loginStyles.error}>{error}</Text> : null}
 
       <Button
         title={loading ? 'Logger inn…' : 'Logg inn'}
@@ -46,12 +45,10 @@ export default function LoginForm({ onSubmit, goToSignUp, loading = false, error
       />
 
       {loading ? (
-        <ActivityIndicator style={{ marginTop: 12 }} />
+        <ActivityIndicator style={loginStyles.loading} />
       ) : (
-        <TouchableOpacity style={{ marginTop: 16 }} onPress={goToSignUp}>
-          <Text style={{ textAlign: 'center', color: '#2fad67' }}>
-            Har du ikke konto? Registrer deg.
-          </Text>
+        <TouchableOpacity style={loginStyles.switchLink} onPress={goToSignUp}>
+          <Text style={loginStyles.switchText}>Har du ikke konto? Registrer deg.</Text>
         </TouchableOpacity>
       )}
     </View>

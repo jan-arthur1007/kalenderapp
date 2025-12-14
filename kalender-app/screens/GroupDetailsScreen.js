@@ -1,17 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  Button,
-  ScrollView,
-  Alert,
-  ActivityIndicator,
-  TouchableOpacity,
-} from 'react-native';
+import { View, Text, TextInput, Button, ScrollView, Alert, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { onValue, ref, update } from 'firebase/database';
 import styles from '../styles/styles';
+import groupDetailsStyles from '../styles/groupDetailsScreenStyles';
 import { auth, database } from '../database/firebase';
 
 const sanitize = (value = '') =>
@@ -239,8 +231,12 @@ export default function GroupDetailsScreen({ route, navigation }) {
 
   if (loading || !group) {
     return (
-      <View style={[styles.screenContainer, { justifyContent: 'center', alignItems: 'center' }]}>
-        {loading ? <ActivityIndicator size="large" color="#2fad67" /> : <Text style={styles.emptyText}>Fant ikke gruppedata.</Text>}
+      <View style={[styles.screenContainer, groupDetailsStyles.loadingContainer]}>
+        {loading ? (
+          <ActivityIndicator size="large" color={groupDetailsStyles.loadingColor.color} />
+        ) : (
+          <Text style={styles.emptyText}>Fant ikke gruppedata.</Text>
+        )}
       </View>
     );
   }
@@ -263,7 +259,7 @@ export default function GroupDetailsScreen({ route, navigation }) {
       {membersArray.map((member) => (
         <TouchableOpacity
           key={member.uid}
-          style={[styles.card, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}
+          style={[styles.card, groupDetailsStyles.rowCard]}
           onPress={() => toggleMember(member.uid)}
           disabled={!isOwner || member.uid === uid}
         >
@@ -272,16 +268,16 @@ export default function GroupDetailsScreen({ route, navigation }) {
             <Text style={styles.cardSubtitle}>{member.email || member.uid}</Text>
           </View>
           {isOwner && member.uid !== uid ? (
-            <Text style={{ color: '#dc2626' }}>Fjern</Text>
+            <Text style={groupDetailsStyles.removeText}>Fjern</Text>
           ) : member.uid === uid ? (
-            <Text style={{ color: '#9ca3af' }}>Deg</Text>
+            <Text style={groupDetailsStyles.mutedText}>Deg</Text>
           ) : null}
         </TouchableOpacity>
       ))}
 
       {isOwner ? (
         // Eier kan invitere flere venner direkte fra listen sin
-        <View style={{ marginTop: 16 }}>
+        <View style={groupDetailsStyles.addFriendsSection}>
           <Text style={styles.label}>Legg til venner</Text>
           {friends.length ? (
             friends.map((friend) => {
@@ -289,14 +285,21 @@ export default function GroupDetailsScreen({ route, navigation }) {
               return (
                 <TouchableOpacity
                   key={friend.uid}
-                  style={[styles.card, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}
+                  style={[styles.card, groupDetailsStyles.rowCard]}
                   onPress={() => toggleFriend(friend)}
                 >
                   <View>
                     <Text style={styles.cardTitle}>{friend.username || friend.uid}</Text>
                     <Text style={styles.cardSubtitle}>{friend.email || friend.uid}</Text>
                   </View>
-                  <Text style={{ color: checked ? '#2fad67' : '#9ca3af' }}>{checked ? 'Valgt' : 'Velg'}</Text>
+                  <Text
+                    style={[
+                      groupDetailsStyles.statusText,
+                      checked && groupDetailsStyles.statusTextChecked,
+                    ]}
+                  >
+                    {checked ? 'Valgt' : 'Velg'}
+                  </Text>
                 </TouchableOpacity>
               );
             })
@@ -306,7 +309,7 @@ export default function GroupDetailsScreen({ route, navigation }) {
         </View>
       ) : null}
 
-      <View style={{ marginTop: 24 }}>
+      <View style={groupDetailsStyles.actionsContainer}>
         {isOwner ? (
           <Button title={saving ? 'Lagrer…' : 'Lagre endringer'} onPress={handleSave} disabled={saving} />
         ) : (
@@ -316,7 +319,7 @@ export default function GroupDetailsScreen({ route, navigation }) {
 
       {isOwner ? (
         // Gir eier en enkel måte å slette hele gruppen
-        <View style={{ marginTop: 12 }}>
+        <View style={groupDetailsStyles.deleteContainer}>
           <Button title="Slett gruppe" onPress={handleDelete} color="#dc2626" />
         </View>
       ) : null}

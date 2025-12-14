@@ -1,18 +1,10 @@
 // Skjerm som lar brukeren samle venner i en navngitt gruppe.
 import React, { useEffect, useMemo, useState } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  Button,
-  ScrollView,
-  Alert,
-  ActivityIndicator,
-  TouchableOpacity,
-} from 'react-native';
+import { View, Text, TextInput, Button, ScrollView, Alert, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ref, onValue, push, update } from 'firebase/database';
 import styles from '../styles/styles';
+import createGroupStyles from '../styles/createGroupScreenStyles';
 import { auth, database } from '../database/firebase';
 
 // Brukes for å lage et stabilt brukernavn-fallback
@@ -168,7 +160,7 @@ export default function CreateGroupScreen({ navigation }) {
   }
 
   return (
-    <SafeAreaView style={[styles.screenContainer, { paddingTop: 12 }]} edges={['top', 'left', 'right']}>
+    <SafeAreaView style={[styles.screenContainer, createGroupStyles.safeArea]} edges={['top', 'left', 'right']}>
       <Text style={styles.screenTitle}>Ny gruppe</Text>
 
       <View style={styles.formGroup}>
@@ -181,12 +173,12 @@ export default function CreateGroupScreen({ navigation }) {
         />
       </View>
 
-      <Text style={[styles.label, { marginBottom: 8 }]}>Velg venner</Text>
+      <Text style={[styles.label, createGroupStyles.friendsLabel]}>Velg venner</Text>
       {loading ? (
         <ActivityIndicator />
       ) : friends.length ? (
         // Viser alle venner slik at man kan krysse av med ett trykk
-        <ScrollView style={{ marginBottom: 16 }}>
+        <ScrollView style={createGroupStyles.friendsList}>
           {friends.map((friend) => {
             const checked = !!selected[friend.uid];
             return (
@@ -194,12 +186,8 @@ export default function CreateGroupScreen({ navigation }) {
                 key={friend.uid}
                 style={[
                   styles.card,
-                  {
-                    flexDirection: 'row',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    borderColor: checked ? '#2fad67' : '#e5e7eb',
-                  },
+                  createGroupStyles.friendCard,
+                  checked && createGroupStyles.friendCardChecked,
                 ]}
                 onPress={() => toggleFriend(friend.uid)}
               >
@@ -207,7 +195,12 @@ export default function CreateGroupScreen({ navigation }) {
                   <Text style={styles.cardTitle}>{friend.username || friend.uid}</Text>
                   <Text style={styles.cardSubtitle}>{friend.email || friend.uid}</Text>
                 </View>
-                <Text style={{ color: checked ? '#2fad67' : '#9ca3af', fontWeight: '600' }}>
+                <Text
+                  style={[
+                    createGroupStyles.friendStatusText,
+                    checked && createGroupStyles.friendStatusTextChecked,
+                  ]}
+                >
                   {checked ? 'Valgt' : 'Velg'}
                 </Text>
               </TouchableOpacity>

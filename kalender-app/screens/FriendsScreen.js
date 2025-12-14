@@ -13,6 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { onValue, ref, get, update, remove } from 'firebase/database';
 import styles from '../styles/styles';
+import friendsStyles from '../styles/friendsScreenStyles';
 import { auth, database } from '../database/firebase';
 
 // Normaliserer input slik at vi kan gjøre case-insensitive søk
@@ -326,26 +327,15 @@ const renderFriend = ({ item }) => (
   }
 
   return (
-    <SafeAreaView
-      style={[styles.screenContainer, { paddingTop: 12 }]}
-      edges={['top', 'left', 'right']}
-    >
+    <SafeAreaView style={[styles.screenContainer, friendsStyles.safeArea]} edges={['top', 'left', 'right']}>
       <Text style={styles.screenTitle}>Venner</Text>
-      <View style={{ flexDirection: 'row', gap: 16, marginBottom: 16 }}>
+      <View style={friendsStyles.tabRow}>
         {['friends', 'groups', 'requests'].map((mode) => {
           const label = mode === 'friends' ? 'Venner' : mode === 'groups' ? 'Grupper' : 'Venneforespørsler';
           const active = viewMode === mode;
           return (
             <TouchableOpacity key={mode} onPress={() => setViewMode(mode)}>
-              <Text
-                style={{
-                  color: active ? '#0f172a' : '#6b7280',
-                  fontWeight: active ? '700' : '500',
-                  borderBottomWidth: active ? 2 : 0,
-                  borderBottomColor: active ? '#0f172a' : 'transparent',
-                  paddingBottom: 4,
-                }}
-              >
+              <Text style={[friendsStyles.tabText, active && friendsStyles.tabTextActive]}>
                 {label}
               </Text>
             </TouchableOpacity>
@@ -357,13 +347,13 @@ const renderFriend = ({ item }) => (
         <>
           <View style={styles.formGroup}>
             <Text style={styles.label}>Søk etter brukernavn</Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <View style={friendsStyles.searchRow}>
               <TextInput
                 placeholder="Søk ..."
                 value={searchValue}
                 onChangeText={setSearchValue}
                 autoCapitalize="none"
-                style={[styles.input, { flex: 1, marginRight: 12 }]}
+                style={[styles.input, friendsStyles.searchInput]}
               />
               <TouchableOpacity
                 onPress={handleSearch}
@@ -379,17 +369,17 @@ const renderFriend = ({ item }) => (
             </View>
             {searching ? <ActivityIndicator style={{ marginTop: 8 }} /> : null}
             {getResultMessage() ? (
-              <Text style={{ marginTop: 8, color: '#6b7280' }}>{getResultMessage()}</Text>
+              <Text style={friendsStyles.resultMessage}>{getResultMessage()}</Text>
             ) : null}
             {searchResult?.type === 'result' ? (
-              <View style={[styles.card, { marginTop: 12 }]}> 
+              <View style={[styles.card, friendsStyles.resultCard]}>
                 <Text style={styles.cardTitle}>{searchResult.profile.username}</Text>
                 <Text style={styles.cardSubtitle}>{searchResult.profile.email || 'Ingen e-post'}</Text>
                 <Button title="Send venneforespørsel" onPress={handleSendRequest} />
               </View>
             ) : null}
             {suggestions.length ? (
-              <View style={{ marginTop: 12 }}>
+              <View style={friendsStyles.suggestionBlock}>
                 <Text style={styles.label}>Forslag</Text>
                 {suggestions.map((user) => (
                   <Button
@@ -405,7 +395,7 @@ const renderFriend = ({ item }) => (
               </View>
             ) : null}
             {feedback ? (
-              <Text style={{ marginTop: 8, color: '#2fad67' }}>{feedback}</Text>
+              <Text style={friendsStyles.feedback}>{feedback}</Text>
             ) : null}
           </View>
 
@@ -422,7 +412,7 @@ const renderFriend = ({ item }) => (
       )}
 
       {viewMode === 'requests' && (
-        <View style={{ flex: 1, marginTop: 12 }}>
+        <View style={friendsStyles.requestsContainer}>
           {incoming.length ? (
             <FlatList
               data={incoming}
@@ -431,7 +421,7 @@ const renderFriend = ({ item }) => (
                 <View style={styles.card}>
                   <Text style={styles.cardTitle}>{item.fromName || item.fromUid}</Text>
                   <Text style={styles.cardSubtitle}>{item.fromEmail || ''}</Text>
-                  <View style={{ flexDirection: 'row', gap: 12, marginTop: 8 }}>
+                  <View style={friendsStyles.requestActions}>
                     <Button title="Godta" onPress={() => acceptRequest(item)} />
                     <Button title="Avslå" color="#dc2626" onPress={() => declineRequest(item)} />
                   </View>
@@ -445,7 +435,7 @@ const renderFriend = ({ item }) => (
       )}
 
       {viewMode === 'groups' && (
-        <View style={{ flex: 1, marginTop: 12 }}>
+        <View style={friendsStyles.groupsContainer}>
           <Button
             title="Ny gruppe"
             onPress={() => {
@@ -459,7 +449,7 @@ const renderFriend = ({ item }) => (
           />
           {groups.length ? (
             <FlatList
-              style={{ marginTop: 12 }}
+              style={friendsStyles.groupsList}
               data={groups}
               keyExtractor={(item) => item.id}
               renderItem={({ item }) => (
