@@ -13,7 +13,7 @@ FreeBusy er utviklet med følgende teknologier:
 
 ## Demo‑video
 
-
+https://www.loom.com/share/31952abf20d54fe39ab1f40547de0a73
 
 ## Slik kjører du prosjektet lokalt
 
@@ -30,7 +30,3 @@ Kjør npx expo start for å starte applikasjonen.
 4. Test applikasjonen på en fysisk enhet:
 - Last ned Expo Go-appen på din iOS- eller Android-enhet.
 - Skann QR-koden som vises i terminalen.
-
-
-
-
