@@ -1,4 +1,8 @@
-// functions/index.js
+// Firebase Functions (gen2): Google-kalender auth + free/busy + create/delete.
+// Klienten (Expo) kaller disse endepunktene for å koble til, lese opptatte tider
+// og opprette/slette hendelser i brukers primærkalender.
+
+// Tokens lagres i RTDB og fornyes med refresh_token der det er mulig.
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 const fetch = require('node-fetch');
@@ -40,6 +44,7 @@ const buildGoogleAuthUrl = ({ scope, state }) => {
   return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
 };
 
+// Brukes til å refreshe access token med refresh token
 async function refreshAccessToken(refreshToken) {
   ensureOAuthConfig();
   if (!refreshToken) {
@@ -63,6 +68,7 @@ async function refreshAccessToken(refreshToken) {
   return json;
 }
 
+// Kaller Google Calendar API for å opprette event i primærkalender
 async function insertCalendarEvent(accessToken, { summary, description, startDateTime, endDateTime, attendees }) {
   const resp = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
     method: 'POST',
@@ -89,7 +95,7 @@ async function insertCalendarEvent(accessToken, { summary, description, startDat
   return json;
 }
 
-// 1) START: /authStart – appen treffer dette via nettleser
+// 1) START: /authStart – klienten åpner denne for å sende bruker til Google OAuth
 exports.authStart = functions.https.onRequest(async (req, res) => {
   try {
     ensureOAuthConfig();
@@ -103,7 +109,7 @@ exports.authStart = functions.https.onRequest(async (req, res) => {
 
     const state = encodeURIComponent(uid);
 
-    // Du kan bytte scope her om du vil
+    
     const scope = [
       'https://www.googleapis.com/auth/calendar.events',
       'https://www.googleapis.com/auth/calendar.readonly',
@@ -118,7 +124,7 @@ exports.authStart = functions.https.onRequest(async (req, res) => {
     console.error('authStart error', err);
     res.status(500).send('Noe gikk galt i authStart.');
   }
-  });
+});
 
 // 2) CALLBACK: /authCallback – Google sender brukeren hit med ?code=&state=
 exports.authCallback = functions.https.onRequest(async (req, res) => {
@@ -143,7 +149,7 @@ exports.authCallback = functions.https.onRequest(async (req, res) => {
       client_secret: OAUTH_CLIENT_SECRET,
       redirect_uri: OAUTH_REDIRECT_URI,
       grant_type: 'authorization_code',
-    });
+});
 
     const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
@@ -175,6 +181,7 @@ exports.authCallback = functions.https.onRequest(async (req, res) => {
     } = tokenJson;
 
     // Lagre tokens i Realtime Database under calendarTokens/{uid}
+    // (accessToken brukes til kall; refreshToken for fornyelse)
     await db.ref(`calendarTokens/${uid}`).set({
       accessToken: access_token,
       refreshToken: refresh_token || null,
@@ -215,6 +222,7 @@ exports.authCallback = functions.https.onRequest(async (req, res) => {
   });
 
 async function fetchBusyIntervals(accessToken, timeMin, timeMax) {
+  // Wrapper rundt Google freeBusy API
   const resp = await fetch('https://www.googleapis.com/calendar/v3/freeBusy', {
     method: 'POST',
     headers: {
@@ -235,6 +243,10 @@ async function fetchBusyIntervals(accessToken, timeMin, timeMax) {
 }
 
 function mergeBusyIntervals(busyList, windowStart, windowEnd) {
+  // Slår sammen overlappende intervaller innenfor tidsvinduet.
+  // 1) Klipper bort alt utenfor [windowStart, windowEnd]
+  // 2) Sorterer på starttid
+  // 3) Fletter overlapp som ett langt intervall
   const start = new Date(windowStart);
   const end = new Date(windowEnd);
   const intervals = busyList
@@ -262,6 +274,9 @@ function mergeBusyIntervals(busyList, windowStart, windowEnd) {
 }
 
 function computeFreeSlotsFromBusy(windowStart, windowEnd, busyIntervals) {
+  // Beregner ledige slotter ut fra opptatte intervaller og et gitt tidsvindu:
+  // 1) Fletter busy intervaller
+  // 2) Går sekvensielt fra start->slutt og samler hullene (ledige perioder)
   const start = new Date(windowStart);
   const end = new Date(windowEnd);
   const mergedBusy = mergeBusyIntervals(busyIntervals, start, end);
@@ -292,8 +307,10 @@ function computeFreeSlotsFromBusy(windowStart, windowEnd, busyIntervals) {
   }));
 }
 
+// 3) /fetchFreeBusy  - henter busy-liste for én bruker (fornyer accessToken ved behov).
 exports.fetchFreeBusy = functions.https.onRequest(async (req, res) => {
   try {
+    // Steg 1: Verifiser ID-token (kreves for å slå opp tokens for brukeren)
     const authHeader = req.headers.authorization || '';
     const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
     if (!token) {
@@ -302,12 +319,15 @@ exports.fetchFreeBusy = functions.https.onRequest(async (req, res) => {
 
     const decoded = await auth.verifyIdToken(token);
     const uid = decoded.uid;
+
+    // Steg 2: Finn lagrede kalender-tokens i RTDB
     const calendarTokensSnap = await db.ref(`calendarTokens/${uid}`).once('value');
     const calendarTokens = calendarTokensSnap.val();
     if (!calendarTokens) {
       return res.status(404).send('Fant ingen Google-kalender for denne brukeren.');
     }
 
+    // Steg 3: Refresh accessToken om det er utløpt og vi har refreshToken
     let accessToken = calendarTokens.accessToken;
     const expiresAt = calendarTokens.expiresAt || 0;
     if (Date.now() > expiresAt && calendarTokens.refreshToken) {
@@ -320,11 +340,13 @@ exports.fetchFreeBusy = functions.https.onRequest(async (req, res) => {
       });
     }
 
+    // Steg 4: Definer tidsvindu (default: nå -> 7 dager frem)
     const { timeMin, timeMax } = req.query;
     const now = new Date();
     const start = timeMin || now.toISOString();
     const end = timeMax || new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString();
 
+    // Steg 5: Kall Google freeBusy API for primærkalender
     const freeBusyResponse = await fetch('https://www.googleapis.com/calendar/v3/freeBusy', {
       method: 'POST',
       headers: {
@@ -341,11 +363,10 @@ exports.fetchFreeBusy = functions.https.onRequest(async (req, res) => {
     const freeBusyJson = await freeBusyResponse.json();
     if (!freeBusyResponse.ok) {
       console.error('freebusy error', freeBusyJson);
-      return res
-        .status(500)
-        .send(freeBusyJson.error?.message || 'Kunne ikke hente free/busy-data.');
+      return res.status(500).send(freeBusyJson.error?.message || 'Kunne ikke hente free/busy-data.');
     }
 
+    // Steg 6: Returner rå free/busy-data til klienten
     return res.status(200).json({
       timeMin: start,
       timeMax: end,
@@ -355,10 +376,12 @@ exports.fetchFreeBusy = functions.https.onRequest(async (req, res) => {
     console.error('fetchFreeBusy error', err);
     return res.status(500).send('Noe gikk galt under free/busy-henting.');
   }
-  });
+});
 
+// 4) /groupFreeBusy  - henter busy-lister for alle gruppemedlemmer, finner felles ledig.
 exports.groupFreeBusy = functions.https.onRequest(async (req, res) => {
   try {
+    // Steg 1: Verifiser ID-token (må være medlem av gruppen)
     const authHeader = req.headers.authorization || '';
     const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
     if (!token) {
@@ -381,16 +404,19 @@ exports.groupFreeBusy = functions.https.onRequest(async (req, res) => {
       return res.status(403).send('Du er ikke medlem av denne gruppen.');
     }
 
+    // Steg 2: Sett tidsvindu (default 3 dager fra nå)
     const now = new Date();
     const timeMin = req.query.timeMin || now.toISOString();
     const defaultMax = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000).toISOString();
     const timeMax = req.query.timeMax || defaultMax;
 
+    // Steg 3: For hver medlem: hent (ev. refresh) token, les busy-intervaller
     const memberIds = Object.keys(group.members || {});
     const busyCombined = [];
     const missingMembers = [];
 
     for (const memberUid of memberIds) {
+      // Hent token for hvert medlem, forsøk å refreshe hvis utløpt
       const tokenSnap = await db.ref(`calendarTokens/${memberUid}`).once('value');
       const tokenData = tokenSnap.val();
       if (!tokenData) {
@@ -424,6 +450,7 @@ exports.groupFreeBusy = functions.https.onRequest(async (req, res) => {
       }
     }
 
+    // Steg 4: Regn ut felles ledige slots (maks 10) og returner
     const freeSlots = computeFreeSlotsFromBusy(timeMin, timeMax, busyCombined).slice(0, 10);
     res.status(200).json({
       timeMin,
@@ -435,15 +462,16 @@ exports.groupFreeBusy = functions.https.onRequest(async (req, res) => {
     console.error('groupFreeBusy error', err);
     res.status(500).send('Noe gikk galt under gruppearbeidet.');
   }
-  });
+});
 
-// 5) OPPRETT EVENT: Oppretter kalenderhendelse for alle deltakere (krever write-scope)
+// 5) OPPRETT EVENT: Oppretter kalenderhendelse for eieren (inviterer deltakere) – krever write-scope
 exports.createEvent = functions.https.onRequest(async (req, res) => {
   try {
     if (req.method !== 'POST') {
       return res.status(405).send('Kun POST er støttet.');
     }
 
+    // Steg 1: Verifiser ID-token
     const authHeader = req.headers.authorization || '';
     const idToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
     if (!idToken) {
@@ -453,6 +481,7 @@ exports.createEvent = functions.https.onRequest(async (req, res) => {
     const decoded = await auth.verifyIdToken(idToken);
     const uid = decoded.uid;
 
+    // Steg 2: Pakk input (og default verdier)
     const {
       appointmentId,
       title,
@@ -466,13 +495,13 @@ exports.createEvent = functions.https.onRequest(async (req, res) => {
       return res.status(400).send('Mangler felter (appointmentId, title, startsAt, endsAt).');
     }
 
-    // Bekreft at avtalen tilhører bruker
+    // Steg 3: Bekreft at avtalen tilhører bruker
     const ownerSnap = await db.ref(`appointments/${uid}/${appointmentId}`).once('value');
     if (!ownerSnap.exists()) {
       return res.status(403).send('Fant ikke avtale for bruker.');
     }
 
-    // Hent deltakere (gruppemedlemmer) om gruppe finnes
+    // Steg 4: Hent deltakere (gruppemedlemmer) om gruppe finnes
     let attendees = [];
     if (groupId) {
       const groupSnap = await db.ref(`groups/${groupId}/members`).once('value');
@@ -489,7 +518,7 @@ exports.createEvent = functions.https.onRequest(async (req, res) => {
       attendees = [decoded.email];
     }
 
-    // Bruk kun eierens kalender: hent token
+    // Steg 5: Bruk eierens kalender: hent (ev. refresh) token
     const tokenSnap = await db.ref(`calendarTokens/${uid}`).once('value');
     const tokenData = tokenSnap.val();
     if (!tokenData) {
@@ -512,6 +541,7 @@ exports.createEvent = functions.https.onRequest(async (req, res) => {
       }
     }
 
+    // Steg 6: Opprett event hos Google Calendar
     const json = await insertCalendarEvent(accessToken, {
       summary: title,
       description,
@@ -520,6 +550,7 @@ exports.createEvent = functions.https.onRequest(async (req, res) => {
       attendees,
     });
 
+    // Steg 7: Svar med eventId og antall inviterte
     return res.status(200).json({
       createdFor: 1,
       eventId: json.id,
@@ -535,6 +566,7 @@ exports.createEvent = functions.https.onRequest(async (req, res) => {
 exports.deleteEvent = functions.https.onRequest(async (req, res) => {
   console.log('deleteEvent body:', JSON.stringify(req.body));
   try {
+    // Steg 1: Valider metode og hent (valgfritt) ID-token
     if (req.method !== 'POST') {
       return res.status(405).send('Kun POST er støttet.');
     }
@@ -551,6 +583,7 @@ exports.deleteEvent = functions.https.onRequest(async (req, res) => {
       // Ignorer verifiseringsfeil og bruk ownerUid fra body som fallback
     }
 
+    // Steg 2: Pakk parametre og bestem effektiv eier
     const { appointmentId, eventId, ownerUid } = req.body || {};
 
     const effectiveUid = uid || ownerUid;
@@ -559,12 +592,13 @@ exports.deleteEvent = functions.https.onRequest(async (req, res) => {
       return res.status(400).send('Mangler appointmentId, eventId eller ownerUid.');
     }
 
-    // Forsøk å slette selv om DB-oppføringen er borte (idempotent) – men logg for innsikt
+    // Steg 3: Forsøk å slette selv om DB-oppføringen er borte (idempotent) – men logg for innsikt
     const ownerSnap = await db.ref(`appointments/${effectiveUid}/${appointmentId}`).once('value');
     if (!ownerSnap.exists()) {
       console.log('deleteEvent: appointment missing in DB, attempting calendar delete anyway');
     }
 
+    // Steg 4: Hent (ev. refresh) token for eier
     const tokenSnap = await db.ref(`calendarTokens/${effectiveUid}`).once('value');
     const tokenData = tokenSnap.val();
     if (!tokenData) {
@@ -587,7 +621,7 @@ exports.deleteEvent = functions.https.onRequest(async (req, res) => {
       }
     }
 
-    // Slett event
+    // Steg 5: Slett event fra eierens primærkalender (ignorer 404)
     const resp = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${encodeURIComponent(eventId)}`, {
       method: 'DELETE',
       headers: {

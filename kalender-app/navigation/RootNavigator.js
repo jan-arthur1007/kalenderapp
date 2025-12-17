@@ -4,7 +4,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { StatusBar } from 'expo-status-bar';
 import MainTabs from './MainTabs';
 import AppointmentDetails from '../screens/Appointment_details';
-import AuthScreen from '../screens/AuthScreen';
+import AuthScreen from '../screens/Auth/AuthScreen';
 import CreateGroupScreen from '../screens/CreateGroupScreen';
 import GroupDetailsScreen from '../screens/GroupDetailsScreen';
 
@@ -18,12 +18,14 @@ export default function RootNavigator({
   updateAppointment,
   deleteAppointment,
 }) {
+  // Fast header-tittel for screens som viser header
   const headerTitle = useMemo(() => 'Kalender', []);
 
   return (
     <NavigationContainer>
       <StatusBar style="dark" />
       {user ? (
+        // Innlogget: viser tab-navigasjon + detaljerte stack-screens
         <Stack.Navigator screenOptions={{ headerShown: false }}>
           <Stack.Screen name="Tabs" options={{ headerTitle }}>
             {() => (
@@ -53,6 +55,7 @@ export default function RootNavigator({
           />
         </Stack.Navigator>
       ) : (
+        // Utlogget: viser bare auth-flow
         <Stack.Navigator screenOptions={{ headerShown: false }}>
           <Stack.Screen name="Auth" component={AuthScreen} />
         </Stack.Navigator>

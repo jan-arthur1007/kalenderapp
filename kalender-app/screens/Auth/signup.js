@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { View, Text, TextInput, Button, TouchableOpacity, ActivityIndicator } from 'react-native';
-import styles from '../styles/styles';
-import signupStyles from '../styles/signupStyles';
+import styles from '../../styles/styles';
+import signupStyles from '../../styles/signupStyles';
 
 export default function SignUpForm({ onSubmit, goToLogin, loading = false, error = '' }) {
   const [email, setEmail] = useState('');

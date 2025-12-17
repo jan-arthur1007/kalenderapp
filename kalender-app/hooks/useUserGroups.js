@@ -7,11 +7,13 @@ export default function useUserGroups(uid) {
   const [groups, setGroups] = useState([]);
 
   useEffect(() => {
+    // Ingen bruker -> tom liste og ingen lytter
     if (!uid) {
       setGroups([]);
       return undefined;
     }
 
+    // Lytt til /userGroups/{uid} og bygg liste av grupper
     const groupsRef = ref(database, `userGroups/${uid}`);
     const unsubscribe = onValue(
       groupsRef,
@@ -24,6 +26,7 @@ export default function useUserGroups(uid) {
       () => setGroups([])
     );
 
+    // Rydder opp lytteren ved unmount/bytte av uid
     return unsubscribe;
   }, [uid]);
 

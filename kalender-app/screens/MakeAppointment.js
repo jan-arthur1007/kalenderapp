@@ -169,7 +169,7 @@ function DateTimeWheelField({ label, value, onChange, minimumDate, mode = 'datet
   );
 }
 
-export default function MakeAppointemnt({ navigation, addAppointment, groups = [] }) {
+export default function MakeAppointment({ navigation, addAppointment, groups = [] }) {
   // Lokale felter for skjemaet
   const [title, setTitle] = useState('');
   const [startDateTime, setStartDateTime] = useState(() => createInitialStart());

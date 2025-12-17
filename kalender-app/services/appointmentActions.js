@@ -2,6 +2,7 @@ import { get, push, ref, update } from 'firebase/database';
 import { auth, database } from '../database/firebase';
 import { deleteCalendarEvent } from './calendarEvents';
 
+// Henter et brukernavn (eller e-post) for brukeren som er innlogget nå
 const currentUserName = () =>
   auth.currentUser?.displayName ||
   auth.currentUser?.email ||
@@ -10,6 +11,7 @@ const currentUserName = () =>
 export async function addAppointment(uid, newItem) {
   if (!uid) throw new Error('Ingen bruker logget inn');
 
+  // Oppretter ny avtale for eier
   const ownerRef = ref(database, `appointments/${uid}`);
   const newRef = push(ownerRef);
   const appointmentId = newRef.key;
@@ -30,6 +32,7 @@ export async function addAppointment(uid, newItem) {
     }
   }
 
+  // Payload for eier
   const payload = {
     ...newItem,
     id: appointmentId,
@@ -42,6 +45,7 @@ export async function addAppointment(uid, newItem) {
     [`appointments/${uid}/${appointmentId}`]: payload,
   };
 
+  // Hvis gruppe: legg inn hos alle gruppemedlemmer
   if (groupMembers) {
     Object.keys(groupMembers).forEach((memberUid) => {
       updates[`appointments/${memberUid}/${appointmentId}`] = {
@@ -94,6 +98,7 @@ export async function deleteAppointment(uid, appointment) {
     deleteCalendarEvent({ appointmentId, eventId: current.googleEventId, ownerUid: uid }).catch(() => null);
   }
 
+  // Slett fra eier + alle gruppemedlemmer
   const updates = {
     [`appointments/${uid}/${appointmentId}`]: null,
   };

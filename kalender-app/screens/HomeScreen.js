@@ -1,5 +1,4 @@
-// Hjem-skjermen: viser en liste over avtaler og lar brukeren
-// trykke på en avtale for å se detaljer.
+// Hjem-skjermen: viser neste avtaler og opptatte tider fra Google-kalender
 import React, { useCallback, useMemo, useState } from 'react';
 import {
   View,
@@ -38,6 +37,7 @@ export default function HomeScreen({
   const [loadingBusy, setLoadingBusy] = useState(false);
 
   const loadAvailability = useCallback(async () => {
+    // Henter opptatte tidsrom for brukerens primærkalender via backend
     if (!hasGoogleClientId()) {
       setBusyTimes([]);
       setBusyWindow(null);
@@ -89,6 +89,7 @@ export default function HomeScreen({
 
   const handleDelete = (item) => {
     if (!deleteAppointment) return;
+    // Bekrefter sletting av avtale (og Google-event via backend)
     Alert.alert('Slett avtale', 'Er du sikker på at du vil slette avtalen?', [
       { text: 'Avbryt', style: 'cancel' },
       {

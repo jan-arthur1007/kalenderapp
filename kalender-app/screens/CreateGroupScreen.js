@@ -1,4 +1,4 @@
-// Skjerm som lar brukeren samle venner i en navngitt gruppe.
+// Skjerm som lar brukeren samle venner i en navngitt gruppe
 import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, TextInput, Button, ScrollView, Alert, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';

@@ -1,4 +1,4 @@
-// Detaljskjerm: viser informasjon om én valgt avtale, inkludert gruppevalg.
+// Detaljskjerm: viser informasjon om én valgt avtale, inkludert gruppevalg
 import React, { useEffect, useState } from 'react';
 import { View, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';

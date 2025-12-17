@@ -7,11 +7,13 @@ export default function useUserAppointments(uid) {
   const [appointments, setAppointments] = useState([]);
 
   useEffect(() => {
+    // Ingen bruker -> tom liste og ingen lytter
     if (!uid) {
       setAppointments([]);
       return undefined;
     }
 
+    // Lytt til /appointments/{uid} og hold listen oppdatert
     const appointmentsRef = ref(database, `appointments/${uid}`);
     const unsubscribe = onValue(
       appointmentsRef,
@@ -46,6 +48,7 @@ export default function useUserAppointments(uid) {
           return !t || t >= now;
         });
 
+        // Sorter etter starttid (eldst først), fallback på createdAt
         upcoming.sort((a, b) => {
           const aStart = a?.startsAt ? new Date(a.startsAt).getTime() : Infinity;
           const bStart = b?.startsAt ? new Date(b.startsAt).getTime() : Infinity;
@@ -60,6 +63,7 @@ export default function useUserAppointments(uid) {
       () => setAppointments([])
     );
 
+    // Rydder opp lytteren ved unmount/bytte av uid
     return unsubscribe;
   }, [uid]);
 

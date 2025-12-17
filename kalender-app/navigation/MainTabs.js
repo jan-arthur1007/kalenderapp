@@ -3,7 +3,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
 import HomeScreen from '../screens/HomeScreen';
-import MakeAppointemnt from '../screens/MakeAppointemnt';
+import MakeAppointment from '../screens/MakeAppointment';
 import FriendsScreen from '../screens/FriendsScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 
@@ -11,6 +11,7 @@ import ProfileScreen from '../screens/ProfileScreen';
 const Tab = createBottomTabNavigator();
 
 const routeIcon = (name, focused) => {
+  // Returnerer ikon basert på rutenavn og fokus-tilstand
   switch (name) {
     case 'Home':
       return focused ? 'home' : 'home-outline';
@@ -56,7 +57,7 @@ export default function MainTabs({
       </Tab.Screen>
       <Tab.Screen name="MakeAppointment" options={{ title: 'Ny avtale' }}>
         {(props) => (
-          <MakeAppointemnt
+          <MakeAppointment
             {...props}
             addAppointment={addAppointment}
             groups={groups}

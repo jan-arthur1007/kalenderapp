@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, Button, TouchableOpacity, ActivityIndicator } from 'react-native';
-import styles from '../styles/styles';
-import loginStyles from '../styles/loginStyles';
+import styles from '../../styles/styles';
+import loginStyles from '../../styles/loginStyles';
 
 export default function LoginForm({ onSubmit, goToSignUp, loading = false, error = '' }) {
   const [email, setEmail] = useState('');

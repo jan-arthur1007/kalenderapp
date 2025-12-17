@@ -1,3 +1,4 @@
+// Skjerm for å vise og redigere en gruppe (eier kan legge til/fjerne medlemmer)
 import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, TextInput, Button, ScrollView, Alert, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -6,6 +7,7 @@ import styles from '../styles/styles';
 import groupDetailsStyles from '../styles/groupDetailsScreenStyles';
 import { auth, database } from '../database/firebase';
 
+// Forenkler brukernavn slik at vi får konsistente nøkler
 const sanitize = (value = '') =>
   value
     .trim()
@@ -13,6 +15,7 @@ const sanitize = (value = '') =>
     .replace(/[^a-z0-9_]/g, '')
     .replace(/_{2,}/g, '_');
 
+// Leser venneliste for innlogget bruker
 const useFriendList = (uid) => {
   const [friends, setFriends] = useState([]);
 

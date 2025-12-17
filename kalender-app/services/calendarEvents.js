@@ -1,6 +1,7 @@
 import Constants from 'expo-constants';
 import { auth } from '../database/firebase';
 
+// Henter Cloud Function URL-er fra app-konfigurasjonen
 const CREATE_EVENT_URL =
   Constants.expoConfig?.extra?.EXPO_PUBLIC_CREATE_EVENT_URL ||
   Constants.manifest?.extra?.EXPO_PUBLIC_CREATE_EVENT_URL ||
@@ -55,6 +56,7 @@ export async function deleteCalendarEvent(payload) {
       Authorization: `Bearer ${idToken}`,
       'Content-Type': 'application/json',
     },
+    // OwnerUid settes for sikkerhetskontroll i backend
     body: JSON.stringify({ ...payload, ownerUid: current.uid }),
   });
 

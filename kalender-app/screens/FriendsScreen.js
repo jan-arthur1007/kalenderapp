@@ -1,4 +1,4 @@
-// Venner-skjermen tilbyr søk, forslag, venneliste og kort vei til gruppering.
+// Venner-skjermen: søk og legg til venner, vis grupper og venneforespørsler
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,

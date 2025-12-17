@@ -1,4 +1,4 @@
-// screens/AuthScreen.js
+// AuthScreen: viser login/registrering og kobler til Google-kalender etterpå
 import React, { useMemo, useState } from 'react';
 import { View, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -9,12 +9,12 @@ import {
 } from 'firebase/auth';
 import { ref, set, get } from 'firebase/database';
 
-import LoginForm from '../components/login';
-import SignUpForm from '../components/signup';
-import styles from '../styles/styles';
-import authScreenStyles from '../styles/authScreenStyles';
-import { auth, database } from '../database/firebase';
-import { safeLinkGoogleCalendar } from '../services/googleCalendarBackend';
+import LoginForm from './login';
+import SignUpForm from './signup';
+import styles from '../../styles/styles';
+import authScreenStyles from '../../styles/authScreenStyles';
+import { auth, database } from '../../database/firebase';
+import { safeLinkGoogleCalendar } from '../../services/googleCalendar';
 
 const errorMessages = {
   'auth/invalid-email': 'Ugyldig e-postadresse.',
@@ -42,6 +42,7 @@ export default function AuthScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  // Bytter tittel avhengig av om vi er i login- eller signup-modus
   const title = useMemo(
     () => (mode === 'login' ? 'Velkommen tilbake' : 'Kom i gang'),
     [mode]
@@ -53,6 +54,7 @@ export default function AuthScreen() {
   };
 
   const handleLogin = async ({ email, password }) => {
+    // Logger inn, og hvis bruker ikke har Google-token tilbyr vi kobling
     try {
       setLoading(true);
       setError('');
@@ -80,6 +82,7 @@ export default function AuthScreen() {
       return;
     }
 
+    // Oppretter bruker, lagrer profil og kobler til Google-kalender
     try {
       setLoading(true);
       setError('');

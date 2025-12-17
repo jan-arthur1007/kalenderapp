@@ -1,4 +1,4 @@
-// Appens hovedfil: setter opp stack/tab-navigasjon og synkroniserer data mot RTDB
+// Appens hovedfil: kobler på auth-lytting, henter grupper/avtaler og renderer navigasjonen
 import * as WebBrowser from 'expo-web-browser';
 WebBrowser.maybeCompleteAuthSession();
 import React, { useEffect, useState, useMemo } from 'react';
@@ -29,6 +29,7 @@ export default function App() {
   const deleteAppointment = useMemo(() => (item) => deleteAppointmentAction(uid, item), [uid]);
 
   useEffect(() => {
+    // Lytter på Firebase Auth for å vite om bruker er innlogget
     const unsubscribe = onAuthStateChanged(auth, (nextUser) => {
       setUser(nextUser);
       setInitializing(false);
@@ -49,6 +50,7 @@ export default function App() {
 
   return (
     <SafeAreaProvider>
+      {/* RootNavigator får med bruker, grupper og avtale-actions */}
       <RootNavigator
         user={user}
         appointments={appointments}

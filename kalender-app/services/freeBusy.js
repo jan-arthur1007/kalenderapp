@@ -1,6 +1,7 @@
 import Constants from 'expo-constants';
 import { auth } from '../database/firebase';
 
+// Endepunkter til backend-funksjonene (settes i app-konfig)
 const GROUP_FUNCTION_URL =
   Constants.expoConfig?.extra?.EXPO_PUBLIC_GROUP_FREE_BUSY_URL ||
   Constants.manifest?.extra?.EXPO_PUBLIC_GROUP_FREE_BUSY_URL ||
