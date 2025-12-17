@@ -17,6 +17,8 @@ https://www.loom.com/share/31952abf20d54fe39ab1f40547de0a73
 
 ## Slik kjører du prosjektet lokalt
 
+Kalenderintegrasjonen mot Google Calendar er satt opp i test mode. Det betyr at du kun kan koble til kalenderen din dersom Google-kontoen din er registrert som testbruker i prosjektets OAuth-oppsett. Hvis du ikke er lagt til som testbruker, vil innloggingen/koblingen til Google Calendar ikke fungere.
+
 1. Last ned prosjektet
 - Last ned repositoriet som ZIP-fil
 - Åpne prosjektet i Visual Studio Code
